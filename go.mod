@@ -1,4 +1,4 @@
-module github.com/debugged-dev/kip
+module debugged-dev/kip/v1
 
 go 1.13
 

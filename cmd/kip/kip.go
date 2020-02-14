@@ -15,8 +15,14 @@ limitations under the License.
 */
 package main
 
-import "github.com/debugged-dev/kip/cmd"
+import (
+	"os"
+)
 
 func main() {
-	cmd.Execute()
+	cmd := newRootCmd(os.Stdout, os.Args[1:])
+
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
