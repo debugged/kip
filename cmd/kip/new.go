@@ -17,10 +17,11 @@ package main
 
 import (
 	"debugged-dev/kip/v1/internal/version"
-	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -43,12 +44,6 @@ func newNewCmd(out io.Writer) *cobra.Command {
 	Cobra is a CLI library for Go that empowers applications.
 	This application is a tool to generate the needed files
 	to quickly create a Cobra application.`,
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return errors.New("requires a name argument")
-			}
-			return nil
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			wd, err := os.Getwd()
 			if err != nil {
@@ -74,13 +69,25 @@ func newNewCmd(out io.Writer) *cobra.Command {
 			config.Set("version", version.Get().Version)
 			
 			config.SafeWriteConfig()
+
+			initHelm(deploymentDir, args[0])
 		},
 	}
 
 	f := cmd.Flags()
 	f.StringVarP(&o.template, "template", "t", "mono", "template for project mono or service")
 
-	cmd.MarkFlagRequired("template")
-
 	return cmd
+}
+
+func initHelm(path string, name string) {
+	cmd := exec.Command("helm", "create", name)
+	cmd.Dir = path
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	
+	if err != nil {
+		log.Fatal(err)
+	}
 }

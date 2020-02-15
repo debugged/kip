@@ -27,6 +27,14 @@ var Generators = []generator {
 		Name: "nestjs",
 		Info: "https://nestjs.com",
 	},
+	generator {
+		Name: "angular",
+		Info: "https://angular.io",
+	},
+	generator {
+		Name: "react",
+		Info: "https://reactjs.org",
+	},
 }
 
 // Generate new project
@@ -42,6 +50,12 @@ func Generate(generatorName string, path string, name string)  {
 	case "nestjs":
 		nestjs(path, name)
 		break
+	case "angular":
+		angular(path, name)
+		break
+	case "react":
+		react(path, name)
+		break
 	default:
 		fmt.Printf(`generator: "%s" does not exist`,generatorName)
 		os.Exit(1)
@@ -55,7 +69,42 @@ func empty(path string, name string) {
 
 // Generate nestjs
 func nestjs(path string, name string) {
+	// check if npx is available
 	cmd := exec.Command("npx", "-p", "@nestjs/cli", "nest", "new", name)
+	cmd.Dir = path
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	err := cmd.Run()
+	
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// todo cleanup if command exit code =! 0
+	// create docker file
+}
+
+func angular(path string, name string) {
+	// check if npx is available
+	cmd := exec.Command("npx", "-p", "@angular/cli", "ng", "new", name, "--skipGit=true")
+	cmd.Dir = path
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	err := cmd.Run()
+	
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// todo cleanup if command exit code =! 0
+	// create docker file
+}
+
+func react(path string, name string) {
+	// check if npx is available
+	cmd := exec.Command("npx", "create-react-app", name, "--template", "typescript")
 	cmd.Dir = path
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

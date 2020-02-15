@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -49,17 +51,14 @@ func newAddServiceCmd(out io.Writer) *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			wd, err := os.Getwd()
-			if err != nil {
-				fmt.Fprintln(out, err)
+			if !hasKipConfig {
+				fmt.Fprintln(out, color.RedString("run this command inside a kip project"))
 				os.Exit(1)
 			}
 
-			if !configFileFound {
-				os.Exit(1)
-			}
+			serviceDir := filepath.Join(kipRoot, "services")
 
-			generator.Generate(o.generator, wd, args[0])
+			generator.Generate(o.generator, serviceDir, args[0])
 		},
 	}
 

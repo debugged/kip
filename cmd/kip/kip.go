@@ -18,13 +18,16 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 // todo: create struct with kip root path etc
-var configFileFound = false
+var kipRoot, hasKipConfig = "", false
+
+var rootPath, _ = filepath.Abs("/")
 
 func main() {
 	cmd := newRootCmd(os.Stdout, os.Args[1:])
@@ -44,13 +47,29 @@ func initConfig() {
 		os.Exit(1)
 	}
 
-	viper.AddConfigPath(wd)
+	kipRoot, hasKipConfig = loadKipRoot(wd)
+}
+
+func loadKipRoot(path string) (response string, ok bool) {
+	viper.AddConfigPath(path)
 	viper.SetConfigName("kip_config")
 	viper.SetConfigType("yaml")
 
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		// if not found loop up
+		newPath, err := filepath.Abs(filepath.Join(path, ".."))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		if(path == rootPath) {
+			return "", false
+		}
+
+		return loadKipRoot(newPath)
 	}
+
+	return path, true
 }

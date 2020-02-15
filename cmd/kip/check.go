@@ -35,13 +35,18 @@ type command struct {
 var dependencies = []command {
 	command {
 		name: "kubectl",
-		info: "https://github.com/kubernetes/kubectl",
+		info: "https://kubernetes.io",
 	},
 	command {
 		name: "helm",
-		info: "https://github.com/helm/helm",
+		info: "https://helm.sh",
+	},
+	command {
+		name: "docker",
+		info: "https://www.docker.com",
 	},
 }
+
 
 func newCheckCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
