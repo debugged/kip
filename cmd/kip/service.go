@@ -16,41 +16,26 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
-	"os"
-
+	"io"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-// todo: create struct with kip root path etc
-var configFileFound = false
 
-func main() {
-	cmd := newRootCmd(os.Stdout, os.Args[1:])
-
-	cobra.OnInitialize(initConfig)
-
-	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
-	}
-}
-
-func initConfig() {
-	// Find home directory.
-	wd, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+func newServiceCmd(out io.Writer) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "service",
+		Short: "create or build a service",
+		Long: `A longer description that spans multiple lines and likely contains examples
+	and usage of using your command. For example:
+	
+	Cobra is a CLI library for Go that empowers applications.
+	This application is a tool to generate the needed files
+	to quickly create a Cobra application.`,
 	}
 
-	viper.AddConfigPath(wd)
-	viper.SetConfigName("kip_config")
-	viper.SetConfigType("yaml")
+	cmd.AddCommand(
+		newAddServiceCmd(out),
+	)
 
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err != nil {
-		// if not found loop up
-	}
+	return cmd
 }

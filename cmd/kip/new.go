@@ -19,6 +19,7 @@ import (
 	"debugged-dev/kip/v1/internal/version"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -26,16 +27,16 @@ import (
 	"github.com/spf13/viper"
 )
 
-type initOptions struct {
+type newOptions struct {
 	template string
 }
 
-func newInitCmd() *cobra.Command {
-	o := &initOptions{}
+func newNewCmd(out io.Writer) *cobra.Command {
+	o := &newOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "init [name]",
-		Short: "A brief description of your command",
+		Use:   "new [name]",
+		Short: "creates a new kubernetes project",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
 	
@@ -58,9 +59,11 @@ func newInitCmd() *cobra.Command {
 			wd = filepath.Join(wd, args[0])
 
 			servicesDir := filepath.Join(wd, "services")
+			deploymentDir := filepath.Join(wd, "deployment")
 			
 			os.MkdirAll(wd, os.ModePerm)
 			os.MkdirAll(servicesDir, os.ModePerm)
+			os.MkdirAll(deploymentDir, os.ModePerm)
 	
 			config := viper.New()
 			config.AddConfigPath(wd)
