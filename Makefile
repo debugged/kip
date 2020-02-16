@@ -63,6 +63,14 @@ build: $(BINDIR)/$(BINNAME)
 $(BINDIR)/$(BINNAME): $(SRC)
 	GO111MODULE=on go build $(GOFLAGS) -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(BINNAME) ./cmd/kip
 
+#
+# install
+
+.PHONY: install
+install:
+	make build
+	cp $(BINDIR)/$(BINNAME) /usr/local/bin
+
 # ------------------------------------------------------------------------------
 #  test
 

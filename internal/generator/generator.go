@@ -5,41 +5,43 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 // DefaultGenerator for bla
 const DefaultGenerator = "empty"
 
 type generator struct {
-	Name string
-	Info string
-	args []string
-	command []string
+	Name        string
+	Info        string
+	args        []string
+	command     []string
 	enableStdin bool
 }
+
 // Generators list
-var Generators = []generator {
-	generator {
+var Generators = []generator{
+	generator{
 		Name: DefaultGenerator,
 		Info: "empty service with Dockerfile",
 	},
-	generator {
+	generator{
 		Name: "nestjs",
 		Info: "https://nestjs.com",
 	},
-	generator {
+	generator{
 		Name: "angular",
 		Info: "https://angular.io",
 	},
-	generator {
+	generator{
 		Name: "react",
 		Info: "https://reactjs.org",
 	},
 }
 
 // Generate new project
-func Generate(generatorName string, path string, name string)  {
-	if len(generatorName) == 0 { 
+func Generate(generatorName string, path string, name string) {
+	if len(generatorName) == 0 {
 		generatorName = DefaultGenerator
 	}
 
@@ -57,7 +59,7 @@ func Generate(generatorName string, path string, name string)  {
 		react(path, name)
 		break
 	default:
-		fmt.Printf(`generator: "%s" does not exist`,generatorName)
+		fmt.Printf(`generator: "%s" does not exist`, generatorName)
 		os.Exit(1)
 	}
 	fmt.Printf(`project: %s generated in: %s`, name, path)
@@ -75,10 +77,19 @@ func nestjs(path string, name string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	err := cmd.Run()
-	
-	if err != nil {
-		log.Fatal(err)
+
+	if err := cmd.Start(); err != nil {
+		log.Fatalf("cmd.Start: %v", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		if exiterr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+						log.Printf("Exit Status: %d", status.ExitStatus())
+				}
+		} else {
+				log.Fatalf("cmd.Wait: %v", err)
+		}
 	}
 
 	// todo cleanup if command exit code =! 0
@@ -93,7 +104,7 @@ func angular(path string, name string) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	err := cmd.Run()
-	
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -110,7 +121,7 @@ func react(path string, name string) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	err := cmd.Run()
-	
+
 	if err != nil {
 		log.Fatal(err)
 	}

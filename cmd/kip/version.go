@@ -16,10 +16,11 @@ limitations under the License.
 package main
 
 import (
-	"debugged-dev/kip/v1/internal/version"
 	"fmt"
 	"html/template"
 	"io"
+
+	"debugged-dev/kip/v1/internal/version"
 
 	"github.com/spf13/cobra"
 )

@@ -26,8 +26,8 @@ import (
 func newRootCmd(out io.Writer, args []string) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:                    "kip",
-		Short:                  "The Kubernetes project manager.",
+		Use:   "kip",
+		Short: "The Kubernetes project manager.",
 		Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
 

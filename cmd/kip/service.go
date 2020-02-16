@@ -17,9 +17,9 @@ package main
 
 import (
 	"io"
+
 	"github.com/spf13/cobra"
 )
-
 
 func newServiceCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{

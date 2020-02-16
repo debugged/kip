@@ -16,13 +16,14 @@ limitations under the License.
 package main
 
 import (
-	"debugged-dev/kip/v1/internal/version"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"debugged-dev/kip/v1/internal/version"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -50,24 +51,24 @@ func newNewCmd(out io.Writer) *cobra.Command {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-	
+
 			wd = filepath.Join(wd, args[0])
 
 			servicesDir := filepath.Join(wd, "services")
 			deploymentDir := filepath.Join(wd, "deployment")
-			
+
 			os.MkdirAll(wd, os.ModePerm)
 			os.MkdirAll(servicesDir, os.ModePerm)
 			os.MkdirAll(deploymentDir, os.ModePerm)
-	
+
 			config := viper.New()
 			config.AddConfigPath(wd)
 			config.SetConfigName("kip_config")
 			config.SetConfigType("yaml")
-			
+
 			config.Set("template", o.template)
 			config.Set("version", version.Get().Version)
-			
+
 			config.SafeWriteConfig()
 
 			initHelm(deploymentDir, args[0])
@@ -86,7 +87,7 @@ func initHelm(path string, name string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
-	
+
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -16,12 +16,13 @@ limitations under the License.
 package main
 
 import (
-	"debugged-dev/kip/v1/internal/generator"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+
+	"debugged-dev/kip/v1/internal/generator"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -30,7 +31,6 @@ import (
 type addServiceOptions struct {
 	generator string
 }
-
 
 func newAddServiceCmd(out io.Writer) *cobra.Command {
 	o := &addServiceOptions{}
@@ -51,6 +51,8 @@ func newAddServiceCmd(out io.Writer) *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			serviceName := args[0]
+
 			if !hasKipConfig {
 				fmt.Fprintln(out, color.RedString("run this command inside a kip project"))
 				os.Exit(1)
@@ -58,13 +60,19 @@ func newAddServiceCmd(out io.Writer) *cobra.Command {
 
 			serviceDir := filepath.Join(kipRoot, "services")
 
-			generator.Generate(o.generator, serviceDir, args[0])
+			if _, err := os.Stat(filepath.Join(serviceDir, serviceName)); !os.IsNotExist(err) {
+				fmt.Fprintf(out, color.RedString("service folder %s already exist"), serviceName)
+				os.Exit(1)
+			}
+			
+
+			generator.Generate(o.generator, serviceDir, serviceName)
 		},
 	}
 
 	f := cmd.Flags()
 
 	f.StringVarP(&o.generator, "generator", "g", "", "generator for service")
-	
+
 	return cmd
 }

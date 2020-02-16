@@ -64,7 +64,7 @@ func loadKipRoot(path string) (response string, ok bool) {
 			os.Exit(1)
 		}
 
-		if(path == rootPath) {
+		if path == rootPath {
 			return "", false
 		}
 

@@ -32,21 +32,20 @@ type command struct {
 	info string
 }
 
-var dependencies = []command {
-	command {
+var dependencies = []command{
+	command{
 		name: "kubectl",
 		info: "https://kubernetes.io",
 	},
-	command {
+	command{
 		name: "helm",
 		info: "https://helm.sh",
 	},
-	command {
+	command{
 		name: "docker",
 		info: "https://www.docker.com",
 	},
 }
-
 
 func newCheckCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
@@ -68,16 +67,16 @@ func newCheckCmd(out io.Writer) *cobra.Command {
 				if err != nil {
 					data = append(data, []string{color.RedString("FAIL"), command.name, fmt.Sprintf("%s not found. for more info: %s", command.name, command.info)})
 					hasError = true
-				}else{
+				} else {
 					data = append(data, []string{color.GreenString("PASS"), command.name, path})
 				}
 			}
-			
+
 			table := tablewriter.NewWriter(color.Output)
 			table.SetHeader([]string{emoji.Sprint(":chicken:"), "command", "message"})
-			
+
 			for _, v := range data {
-					table.Append(v)
+				table.Append(v)
 			}
 			table.Render()
 
@@ -86,6 +85,6 @@ func newCheckCmd(out io.Writer) *cobra.Command {
 			}
 		},
 	}
-	
+
 	return cmd
 }
