@@ -35,6 +35,7 @@ func newServiceCmd(out io.Writer) *cobra.Command {
 
 	cmd.AddCommand(
 		newAddServiceCmd(out),
+		newListServiceCmd(out),
 	)
 
 	return cmd

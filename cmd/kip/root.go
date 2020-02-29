@@ -39,6 +39,7 @@ to quickly create a Cobra application.`,
 	cmd.AddCommand(
 		newNewCmd(out),
 		newServiceCmd(out),
+		newBuildCmd(out),
 		newGeneratorsCmd(out),
 		newCheckCmd(out),
 		newVersionCmd(out),

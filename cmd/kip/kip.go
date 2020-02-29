@@ -16,21 +16,25 @@ limitations under the License.
 package main
 
 import (
+	"debugged-dev/kip/v1/internal/project"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 // todo: create struct with kip root path etc
-var kipRoot, hasKipConfig = "", false
+var kipProject project.Project
+var hasKipConfig = false
 
 var rootPath, _ = filepath.Abs("/")
 
 func main() {
-	cmd := newRootCmd(os.Stdout, os.Args[1:])
+	cmd := newRootCmd(color.Output, os.Args[1:])
 
 	cobra.OnInitialize(initConfig)
 
@@ -47,17 +51,24 @@ func initConfig() {
 		os.Exit(1)
 	}
 
-	kipRoot, hasKipConfig = loadKipRoot(wd)
+	projectRoot, config, err := loadKipRoot(wd)
+
+	hasKipConfig = err == nil
+
+	if hasKipConfig {
+		kipProject = project.GetProject(projectRoot, config)
+	}
 }
 
-func loadKipRoot(path string) (response string, ok bool) {
-	viper.AddConfigPath(path)
-	viper.SetConfigName("kip_config")
-	viper.SetConfigType("yaml")
+func loadKipRoot(path string) (projectRoot string, response *viper.Viper, err error) {
+	projectConfig := viper.New()
+	projectConfig.AddConfigPath(path)
+	projectConfig.SetConfigName("kip_project")
+	projectConfig.SetConfigType("yaml")
 
-	viper.AutomaticEnv()
+	projectConfig.AutomaticEnv()
 
-	if err := viper.ReadInConfig(); err != nil {
+	if err := projectConfig.ReadInConfig(); err != nil {
 		newPath, err := filepath.Abs(filepath.Join(path, ".."))
 		if err != nil {
 			fmt.Println(err)
@@ -65,11 +76,11 @@ func loadKipRoot(path string) (response string, ok bool) {
 		}
 
 		if path == rootPath {
-			return "", false
+			return "", nil, errors.New("kip_project config not found")
 		}
 
 		return loadKipRoot(newPath)
 	}
 
-	return path, true
+	return path, projectConfig, nil
 }

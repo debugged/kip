@@ -16,23 +16,18 @@ limitations under the License.
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-
-	"debugged-dev/kip/v1/internal/generator"
 
 	"github.com/fatih/color"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
 func newListServiceCmd(out io.Writer) *cobra.Command {
-	o := &addServiceOptions{}
-
 	cmd := &cobra.Command{
-		Use:   "add [name]",
+		Use:   "list",
 		Short: "lists all available generators for creating services",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
@@ -40,27 +35,32 @@ func newListServiceCmd(out io.Writer) *cobra.Command {
 	Cobra is a CLI library for Go that empowers applications.
 	This application is a tool to generate the needed files
 	to quickly create a Cobra application.`,
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return errors.New("requires a name argument")
-			}
-			return nil
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			if !hasKipConfig {
 				fmt.Fprintln(out, color.RedString("run this command inside a kip project"))
 				os.Exit(1)
 			}
 
-			serviceDir := filepath.Join(kipRoot, "services")
+			data := [][]string{}
 
-			generator.Generate(o.generator, serviceDir, args[0])
+			for _, service := range kipProject.Services() {
+					if service.HasDockerfile() {
+						data = append(data, []string{service.Name(), "OK"})
+					}else {
+						data = append(data, []string{service.Name(), "Dockerfile not found"})
+					}
+			}
+
+			table := tablewriter.NewWriter(color.Output)
+			table.SetHeader([]string{"services", "info"})
+
+			for _, v := range data {
+				table.Append(v)
+			}
+
+			table.Render()
 		},
 	}
-
-	f := cmd.Flags()
-
-	f.StringVarP(&o.generator, "generator", "g", "", "generator for service")
 
 	return cmd
 }

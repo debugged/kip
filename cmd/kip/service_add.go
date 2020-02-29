@@ -53,20 +53,27 @@ func newAddServiceCmd(out io.Writer) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			serviceName := args[0]
 
+			f := cmd.Flags()
+			
+			extraArgs := []string{}
+
+			if f.ArgsLenAtDash() != -1 {
+				extraArgs = f.Args()[f.ArgsLenAtDash():]
+			}
+
 			if !hasKipConfig {
 				fmt.Fprintln(out, color.RedString("run this command inside a kip project"))
 				os.Exit(1)
 			}
 
-			serviceDir := filepath.Join(kipRoot, "services")
+			serviceDir := kipProject.Paths().Services
 
 			if _, err := os.Stat(filepath.Join(serviceDir, serviceName)); !os.IsNotExist(err) {
 				fmt.Fprintf(out, color.RedString("service folder %s already exist"), serviceName)
 				os.Exit(1)
 			}
-			
 
-			generator.Generate(o.generator, serviceDir, serviceName)
+			generator.Generate(o.generator, serviceDir, serviceName, extraArgs)
 		},
 	}
 

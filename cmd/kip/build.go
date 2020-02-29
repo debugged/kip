@@ -1,0 +1,110 @@
+/*
+Copyright © 2020 NAME HERE <EMAIL ADDRESS>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package main
+
+import (
+	"debugged-dev/kip/v1/internal/project"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/fatih/color"
+	"github.com/spf13/cobra"
+	"robpike.io/filter"
+)
+
+type buildOptions struct {
+	all bool
+	services []string
+}
+
+func newBuildCmd(out io.Writer) *cobra.Command {
+	o := &buildOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "build",
+		Short: "builds a service",
+		Long: `A longer description that spans multiple lines and likely contains examples
+	and usage of using your command. For example:
+	
+	Cobra is a CLI library for Go that empowers applications.
+	This application is a tool to generate the needed files
+	to quickly create a Cobra application.`,
+		Run: func(cmd *cobra.Command, args []string) {
+
+			extraArgs := cmd.Flags().Args()
+			
+			services := kipProject.Services()
+			servicesToBuild := []project.Service{}
+
+			if(!o.all && len(o.services) == 0) {
+				fmt.Fprint(out, "specify what to build using -s required or use --all | -a to build all services\n")
+				os.Exit(1)
+			}
+
+			
+			if o.all {
+				servicesToBuild = append(servicesToBuild, services...)
+			}else if len(o.services) > 0 {
+
+				for _, serviceName := range o.services {
+					var foundService project.Service = nil
+					for _, service := range services {
+						if service.Name() == serviceName {
+							foundService = service
+							break;
+						}
+					}
+
+					if foundService != nil {
+						servicesToBuild = append(servicesToBuild, foundService)
+					}else {
+						fmt.Fprintf(out, "service \"%s\" does not exist in project\n", serviceName)
+						os.Exit(1)
+					}
+				}				
+			}
+
+			serviceNames := filter.Apply(servicesToBuild, func (s project.Service) string  {
+				return s.Name()
+			}).([]string)
+
+			fmt.Fprintf(out, "Building services: %s\n\n", strings.Join(serviceNames, ","))
+			buildServices(out, services, extraArgs)
+		},
+	}
+
+	f := cmd.Flags()
+	f.BoolVarP(&o.all, "all", "a", false, "build all services")
+	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to build")
+
+	return cmd
+}
+
+func buildServices(out io.Writer, services []project.Service, args []string) {
+	for _, service := range services {
+		if service.HasDockerfile() {
+			fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
+			buildErr := service.Build(args)
+			if buildErr == nil {
+				fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
+			}
+		}else {
+			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
+		}				
+	}
+}

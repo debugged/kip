@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -45,6 +46,12 @@ func newNewCmd(out io.Writer) *cobra.Command {
 	Cobra is a CLI library for Go that empowers applications.
 	This application is a tool to generate the needed files
 	to quickly create a Cobra application.`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return errors.New("requires a name argument")
+		}
+		return nil
+	},
 		Run: func(cmd *cobra.Command, args []string) {
 			wd, err := os.Getwd()
 			if err != nil {
@@ -63,7 +70,7 @@ func newNewCmd(out io.Writer) *cobra.Command {
 
 			config := viper.New()
 			config.AddConfigPath(wd)
-			config.SetConfigName("kip_config")
+			config.SetConfigName("kip_project")
 			config.SetConfigType("yaml")
 
 			config.Set("template", o.template)
@@ -76,7 +83,7 @@ func newNewCmd(out io.Writer) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.StringVarP(&o.template, "template", "t", "mono", "template for project mono or service")
+	f.StringVarP(&o.template, "template", "t", "project", "a project can contain multiple services")
 
 	return cmd
 }

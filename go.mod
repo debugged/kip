@@ -9,4 +9,5 @@ require (
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.6.0
+	robpike.io/filter v0.0.0-20150108201509-2984852a2183
 )

@@ -1,11 +1,16 @@
 package generator
 
 import (
+	"context"
+	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
+	"os/signal"
+	"path/filepath"
 	"syscall"
+
+	"github.com/fatih/color"
 )
 
 // DefaultGenerator for bla
@@ -40,91 +45,374 @@ var Generators = []generator{
 }
 
 // Generate new project
-func Generate(generatorName string, path string, name string) {
+func Generate(generatorName string, path string, name string, args []string) error {
+	var buildErr error
 	if len(generatorName) == 0 {
 		generatorName = DefaultGenerator
 	}
 
 	switch generatorName {
 	case "empty":
-		empty(path, name)
+		buildErr = empty(path, name)
 		break
 	case "nestjs":
-		nestjs(path, name)
+		buildErr = nestjs(path, name, args)
 		break
 	case "angular":
-		angular(path, name)
+		buildErr = angular(path, name, args)
 		break
 	case "react":
-		react(path, name)
+		buildErr = react(path, name, args)
 		break
 	default:
-		fmt.Printf(`generator: "%s" does not exist`, generatorName)
+		fmt.Printf("generator: \"%s\" does not exist\n", generatorName)
 		os.Exit(1)
 	}
+
+	if buildErr != nil {
+		fmt.Fprintf(color.Output, color.RedString("ERROR: %s\n"), buildErr)
+		fmt.Printf("cleanup service: %s\n", name)
+		servicePath := filepath.Join(path, name)
+		os.RemoveAll(servicePath)
+		fmt.Println("cleanup done")
+		os.Exit(1)
+	}
+
 	fmt.Printf(`project: %s generated in: %s`, name, path)
+	return nil;
 }
 
-func empty(path string, name string) {
+func empty(path string, name string) error {
+	servicePath := filepath.Join(path, name)
 
+	err := os.MkdirAll(servicePath, os.ModePerm)
+
+	emptyDockerfile := `FROM busybox
+RUN echo "hello world!"`
+
+	err = createDockerfile(servicePath, emptyDockerfile)
+
+	if err != nil {
+		return err
+	}
+
+	err = createDockerIgnore(servicePath, "")
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Generate nestjs
-func nestjs(path string, name string) {
-	// check if npx is available
-	cmd := exec.Command("npx", "-p", "@nestjs/cli", "nest", "new", name)
+func nestjs(path string, name string, args []string) error {
+	servicePath := filepath.Join(path, name)
+
+	requireCommand("npx")
+	cmdArgs := []string{"-p", "@nestjs/cli", "nest", "new", name}
+	cmdArgs = append(cmdArgs, args...)
+	err := runCommand(path, "npx", cmdArgs)
+
+	if err != nil {
+		return err
+	}
+
+	nestjsDockerIgnore := `node_modules
+npm-debug.log
+Dockerfile*
+docker-compose*
+.dockerignore
+.git
+.gitignore
+README.md
+LICENSE
+.vscode`
+
+	nestjsDockerfile := `FROM node:12 as base
+
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+RUN chown -R node:node .
+
+USER node
+
+COPY --chown=node:node package.json .
+COPY --chown=node:node package-lock.json* .
+
+
+RUN npm ci
+COPY --chown=node:node . .
+
+FROM base as dev
+CMD ["npm", "run", "start:dev"]
+
+FROM base as build
+
+WORKDIR /usr/src/app
+
+RUN npm run build
+
+FROM build
+WORKDIR /usr/src/app
+
+ENV NODE_ICU_DATA node_modules/full-icu
+
+EXPOSE 3333
+
+CMD [ "node", "dist/main.js" ]`
+
+	err = createDockerfile(servicePath, nestjsDockerfile)
+
+	if err != nil {
+		return err
+	}
+
+	err = createDockerIgnore(servicePath, nestjsDockerIgnore)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func angular(path string, name string, args []string) error {
+	servicePath := filepath.Join(path, name)
+
+	requireCommand("npx")
+	cmdArgs := []string{"-p", "@angular/cli", "ng", "new", name, "--skipGit=true"}
+	err := runCommand(path, "npx", cmdArgs)
+
+	if err != nil {
+		return err
+	}
+
+	angularDockerIgnore := `node_modules
+npm-debug.log
+Dockerfile*
+docker-compose*
+.dockerignore
+.git
+.gitignore
+README.md
+LICENSE
+.vscode`
+
+	angularDockerfile := `FROM node:10 as modules
+
+WORKDIR /usr/src/app
+RUN chown -R node:node .
+
+USER node
+
+COPY --chown=node:node package.json .
+COPY --chown=node:node package-lock.json .
+
+RUN npm install
+
+FROM node:10 as base
+WORKDIR /usr/src/app
+
+COPY --from=modules /usr/ /usr/
+COPY . .
+
+# Dev environment
+FROM base as dev
+CMD ["npm", "start"]
+
+# We label our stage as ‘builder’
+FROM base as builder
+
+WORKDIR /usr/src/app
+
+ARG configuration=production
+
+## Build the angular app in production mode and store the artifacts in dist folder
+RUN $(npm bin)/ng build --configuration $configuration
+
+### STAGE 2: Setup ###
+
+FROM nginx:1.15-alpine
+
+## Copy our default nginx config
+COPY nginx/default.conf /etc/nginx/conf.d/
+
+## Remove default nginx website
+RUN rm -rf /usr/share/nginx/html/*
+
+## From ‘builder’ stage copy over the artifacts in dist folder to default nginx public folder
+COPY --from=builder /usr/src/app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]`
+
+	err = createDockerfile(servicePath, angularDockerfile)
+
+	if err != nil {
+		return err
+	}
+
+	err = createDockerIgnore(servicePath, angularDockerIgnore)
+
+	if err != nil {
+		return err
+	}
+
+	err = createNginConfig(servicePath)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func react(path string, name string, args []string) error {
+	cmdArgs := []string{"create-react-app", name}
+	cmdArgs = append(cmdArgs, args...)
+	err := runCommand(path, "npx", cmdArgs)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func signalWatcher(ctx context.Context, cmd *exec.Cmd) {
+	signalChan := make(chan os.Signal, 100)
+	// Listen for all signals
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+
+	signal := <-signalChan
+	if err := cmd.Process.Signal(signal); err != nil {
+		fmt.Println("Unable to forward signal: ", err)
+	}
+	for signal = range signalChan {
+		if err := cmd.Process.Signal(signal); err != nil {
+			fmt.Println("Unable to forward signal: ", err)
+		}
+	}
+}
+
+func runCommand(path string, command string, args []string) (err error) {
+	requireCommand(command)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := exec.CommandContext(ctx, command, args...)
+	go signalWatcher(ctx, cmd)
 	cmd.Dir = path
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("cmd.Start: %v", err)
+		return err
 	}
 
 	if err := cmd.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-						log.Printf("Exit Status: %d", status.ExitStatus())
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				if status.ExitStatus() != 0 {
+					return errors.New("exited with non 0 code")
 				}
-		} else {
-				log.Fatalf("cmd.Wait: %v", err)
+				return nil
+			}
 		}
 	}
 
-	// todo cleanup if command exit code =! 0
-	// create docker file
+	return nil
 }
 
-func angular(path string, name string) {
-	// check if npx is available
-	cmd := exec.Command("npx", "-p", "@angular/cli", "ng", "new", name, "--skipGit=true")
-	cmd.Dir = path
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	err := cmd.Run()
-
+func requireCommand(command string) {
+	_, err := exec.LookPath(command)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("command \"%s\" not found in $PATH\n", command)
+		os.Exit(1)
 	}
-
-	// todo cleanup if command exit code =! 0
-	// create docker file
 }
 
-func react(path string, name string) {
-	// check if npx is available
-	cmd := exec.Command("npx", "create-react-app", name, "--template", "typescript")
-	cmd.Dir = path
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	err := cmd.Run()
-
+func createDockerfile(servicePath string, dockerfile string) error {
+	f, err := os.Create(filepath.Join(servicePath, "Dockerfile"))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	// todo cleanup if command exit code =! 0
+	_, err = f.WriteString(dockerfile)
+	if err != nil {
+			return err
+	}
+	err = f.Close()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createDockerIgnore(servicePath string, dockerIgnore string) error {
+	f, err := os.Create(filepath.Join(servicePath, ".dockerignore"))
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString(dockerIgnore)
+	if err != nil {
+			return err
+	}
+	err = f.Close()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createNginConfig(servicePath string) error {
+	nginxPath := filepath.Join(servicePath, "nginx")
+
+	err := os.MkdirAll(nginxPath, os.ModePerm)
+
+	if err != nil {
+		return err
+	}
+
+	nginxConfig := `server {
+
+	listen 80;
+
+	location / {
+		root   /usr/share/nginx/html;
+		index  index.html index.htm;
+		try_files $uri $uri/ /index.html;
+	}
+
+	error_page   500 502 503 504  /50x.html;
+
+	location = /50x.html {
+		root   /usr/share/nginx/html;
+	}
+
+}`
+
+	f, err := os.Create(filepath.Join(nginxPath, "default.conf"))
+	if err != nil {
+		return err
+	}
+
+	_, err = f.WriteString(nginxConfig)
+	if err != nil {
+			return err
+	}
+	err = f.Close()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
