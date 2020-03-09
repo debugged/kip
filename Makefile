@@ -69,7 +69,7 @@ $(BINDIR)/$(BINNAME): $(SRC)
 .PHONY: install
 install:
 	make build
-	cp $(BINDIR)/$(BINNAME) /usr/local/bin
+	cp $(BINDIR)/$(BINNAME) $(HOME)/.local/bin
 
 # ------------------------------------------------------------------------------
 #  test
