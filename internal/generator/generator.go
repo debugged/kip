@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
-
-	"github.com/fatih/color"
 )
 
 // DefaultGenerator for bla
@@ -65,20 +64,13 @@ func Generate(generatorName string, path string, name string, args []string) err
 		buildErr = react(path, name, args)
 		break
 	default:
-		fmt.Printf("generator: \"%s\" does not exist\n", generatorName)
-		os.Exit(1)
+		log.Fatalf("generator: \"%s\" does not exist\n", generatorName)
 	}
 
 	if buildErr != nil {
-		fmt.Fprintf(color.Output, color.RedString("ERROR: %s\n"), buildErr)
-		fmt.Printf("cleanup service: %s\n", name)
-		servicePath := filepath.Join(path, name)
-		os.RemoveAll(servicePath)
-		fmt.Println("cleanup done")
-		os.Exit(1)
+		return buildErr
 	}
 
-	fmt.Printf(`project: %s generated in: %s`, name, path)
 	return nil;
 }
 
@@ -110,7 +102,7 @@ func nestjs(path string, name string, args []string) error {
 	servicePath := filepath.Join(path, name)
 
 	requireCommand("npx")
-	cmdArgs := []string{"-p", "@nestjs/cli", "nest", "new", name}
+	cmdArgs := []string{"-p", "@nestjs/cli", "nest", "new", name, "--skip-git"}
 	cmdArgs = append(cmdArgs, args...)
 	err := runCommand(path, "npx", cmdArgs)
 
@@ -155,8 +147,6 @@ RUN npm run build
 
 FROM build
 WORKDIR /usr/src/app
-
-ENV NODE_ICU_DATA node_modules/full-icu
 
 EXPOSE 3333
 
@@ -329,8 +319,7 @@ func runCommand(path string, command string, args []string) (err error) {
 func requireCommand(command string) {
 	_, err := exec.LookPath(command)
 	if err != nil {
-		fmt.Printf("command \"%s\" not found in $PATH\n", command)
-		os.Exit(1)
+		log.Fatalf("command \"%s\" not found in $PATH\n", command)
 	}
 }
 

@@ -20,9 +20,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
-	"debugged-dev/kip/v1/internal/generator"
+	"debugged-dev/kip/v1/internal/project"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -37,7 +36,7 @@ func newAddServiceCmd(out io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "add [name]",
-		Short: "lists all available generators for creating services",
+		Short: "generates a new service in your kip project",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
 	
@@ -51,6 +50,11 @@ func newAddServiceCmd(out io.Writer) *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			if !hasKipConfig {
+				fmt.Fprintln(out, color.RedString("run this command inside a kip project"))
+				os.Exit(1)
+			}
+			
 			serviceName := args[0]
 
 			f := cmd.Flags()
@@ -61,19 +65,21 @@ func newAddServiceCmd(out io.Writer) *cobra.Command {
 				extraArgs = f.Args()[f.ArgsLenAtDash():]
 			}
 
-			if !hasKipConfig {
-				fmt.Fprintln(out, color.RedString("run this command inside a kip project"))
+			if kipProject.Template() == "service" {
+				fmt.Println("cannot create service inside kip service project")
 				os.Exit(1)
 			}
 
 			serviceDir := kipProject.Paths().Services
 
-			if _, err := os.Stat(filepath.Join(serviceDir, serviceName)); !os.IsNotExist(err) {
-				fmt.Fprintf(out, color.RedString("service folder %s already exist"), serviceName)
+			err := project.CreateServiceProject(serviceDir, serviceName, o.generator, extraArgs)
+
+			if err != nil {
+				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			generator.Generate(o.generator, serviceDir, serviceName, extraArgs)
+			fmt.Printf("service: %s created!\n", serviceName)
 		},
 	}
 

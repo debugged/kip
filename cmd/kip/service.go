@@ -24,7 +24,7 @@ import (
 func newServiceCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "service",
-		Short: "create or build a service",
+		Short: "create a service",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
 	

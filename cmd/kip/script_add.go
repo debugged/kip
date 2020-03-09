@@ -16,26 +16,26 @@ limitations under the License.
 package main
 
 import (
-	"debugged-dev/kip/v1/internal/project"
 	"errors"
 	"fmt"
 	"io"
-	"os"
+	"log"
 
 	"github.com/spf13/cobra"
 )
 
-type newOptions struct {
-	template string
-	generator string
+type addScriptOptions struct {
+	service string
+	command string
+	bindings []string
 }
 
-func newNewCmd(out io.Writer) *cobra.Command {
-	o := &newOptions{}
+func newAddScriptCmd(out io.Writer) *cobra.Command {
+	o := &addScriptOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "new [name]",
-		Short: "creates a new kubernetes project",
+		Use:   "add [name]",
+		Short: "adds a new script to your project or service",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
 	
@@ -49,44 +49,46 @@ func newNewCmd(out io.Writer) *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			wd, err := os.Getwd()
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+			if !hasKipConfig {
+				log.Fatalln("run this command inside a kip project")
 			}
 
-			projectName := args[0]
+			scriptName := args[0]
 
-			switch o.template {
-				case "project":
-					err = project.CreateMonoProject(wd, projectName)
-					break;
-				case "service":
-					extraArgs := []string{}
+			var path string = ""
+			var err error
 
-					f := cmd.Flags()
+			if o.service != "" && kipProject.Template() == "project" {
+				service, err := kipProject.GetService(o.service)
 
-					if f.ArgsLenAtDash() != -1 {
-						extraArgs = f.Args()[f.ArgsLenAtDash():]
-					}
-					err = project.CreateServiceProject(wd, projectName, o.generator, extraArgs)
-					break;
-				default:
-					os.Exit(1)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				path, err = service.AddScript(scriptName, o.command, o.bindings)
+
+				if err != nil {
+					log.Fatal(err)
+				}
+			}else {
+				path, err = kipProject.AddScript(scriptName, o.command, o.bindings)
+
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-
-			fmt.Printf("project: %s created!\n", projectName)
+			fmt.Printf("created in %s\n", path)
 		},
 	}
 
 	f := cmd.Flags()
-	f.StringVarP(&o.template, "template", "t", "project", "project | service. A project can contain multiple services")
-	f.StringVarP(&o.generator, "generator", "g", "", "generator used for creating service project")
+
+	f.StringVarP(&o.service, "service", "s", "", "service where to add script")
+	f.StringVarP(&o.command, "command", "c", "", "command to initiate script with, for example: bash, sh, node, python")
+	f.StringArrayVarP(&o.bindings, "bind", "b", []string{}, "script bindings, for example: pre-build, post-build, pre-deploy, post-deploy")
+
+	cmd.MarkFlagRequired("command")
 
 	return cmd
 }

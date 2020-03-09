@@ -19,6 +19,7 @@ import (
 	"debugged-dev/kip/v1/internal/project"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -45,24 +46,30 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 	This application is a tool to generate the needed files
 	to quickly create a Cobra application.`,
 		Run: func(cmd *cobra.Command, args []string) {
+			if !hasKipConfig {
+				log.Fatalln("run this command inside a kip project")
+			}
 
 			extraArgs := cmd.Flags().Args()
 			
 			services := kipProject.Services()
-			servicesToBuild := []project.Service{}
+			servicesToBuild := []project.ServiceProject{}
 
-			if(!o.all && len(o.services) == 0) {
-				fmt.Fprint(out, "specify what to build using -s required or use --all | -a to build all services\n")
-				os.Exit(1)
+			if !o.all && len(o.services) == 0 {
+				o.all = true
 			}
 
+			if o.all && len(o.services) > 0 {
+				fmt.Fprintf(out, "WARN: --all is ignored when --service is used\n")
+				o.all = false
+			}
 			
 			if o.all {
 				servicesToBuild = append(servicesToBuild, services...)
 			}else if len(o.services) > 0 {
 
 				for _, serviceName := range o.services {
-					var foundService project.Service = nil
+					var foundService project.Project = nil
 					for _, service := range services {
 						if service.Name() == serviceName {
 							foundService = service
@@ -71,7 +78,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 					}
 
 					if foundService != nil {
-						servicesToBuild = append(servicesToBuild, foundService)
+						servicesToBuild = append(servicesToBuild, foundService.(project.ServiceProject))
 					}else {
 						fmt.Fprintf(out, "service \"%s\" does not exist in project\n", serviceName)
 						os.Exit(1)
@@ -79,29 +86,46 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				}				
 			}
 
-			serviceNames := filter.Apply(servicesToBuild, func (s project.Service) string  {
+			serviceNames := filter.Apply(servicesToBuild, func (s project.ServiceProject) string  {
 				return s.Name()
 			}).([]string)
 
 			fmt.Fprintf(out, "Building services: %s\n\n", strings.Join(serviceNames, ","))
-			buildServices(out, services, extraArgs)
+
+			preBuildscripts := kipProject.GetScripts("pre-build")
+
+			if len(preBuildscripts) > 0 {
+				for _, script := range preBuildscripts {
+					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
+
+					err := script.Run([]string{})
+					if err != nil {
+						log.Fatalf("error running script \"%s\": %v", script.Name, err)
+					}
+				}
+			}
+
+			buildServices(out, servicesToBuild, extraArgs)
 		},
 	}
 
 	f := cmd.Flags()
-	f.BoolVarP(&o.all, "all", "a", false, "build all services")
+	f.BoolVarP(&o.all, "all", "a", false, "build all services (default)")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to build")
 
 	return cmd
 }
 
-func buildServices(out io.Writer, services []project.Service, args []string) {
+func buildServices(out io.Writer, services []project.ServiceProject, args []string) {
 	for _, service := range services {
 		if service.HasDockerfile() {
 			fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
-			buildErr := service.Build(args)
+			buildErr := service.Build(nil, args)
 			if buildErr == nil {
 				fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
+			}else {
+				fmt.Fprint(out, buildErr)
+				os.Exit(1)
 			}
 		}else {
 			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())

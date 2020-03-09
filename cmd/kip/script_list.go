@@ -16,19 +16,21 @@ limitations under the License.
 package main
 
 import (
+	"debugged-dev/kip/v1/internal/project"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
-func newListServiceCmd(out io.Writer) *cobra.Command {
+func newListScriptCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "lists all services",
+		Short: "lists all scripts",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
 	
@@ -41,26 +43,41 @@ func newListServiceCmd(out io.Writer) *cobra.Command {
 				os.Exit(1)
 			}
 
-			data := [][]string{}
+			switch kipProject.Template() {
+			case "project":
+				fmt.Printf("Scripts in project %s\n", kipProject.Name())
+				renderScriptsTable(kipProject.GetScripts(""))
 
-			for _, service := range kipProject.Services() {
-					if service.HasDockerfile() {
-						data = append(data, []string{service.Name(), "OK"})
-					}else {
-						data = append(data, []string{service.Name(), "Dockerfile not found"})
-					}
+				for _, service := range kipProject.Services() {
+					fmt.Printf("\nScripts in service: %s\n", service.Name())
+					renderScriptsTable(service.GetScripts(""))
+				}
+
+				break;
+			case "service":
+				fmt.Printf("Scripts in service: %s\n", kipProject.Name())
+				renderScriptsTable(kipProject.GetScripts(""))
+				break;
 			}
-
-			table := tablewriter.NewWriter(color.Output)
-			table.SetHeader([]string{"services", "info"})
-
-			for _, v := range data {
-				table.Append(v)
-			}
-
-			table.Render()
 		},
 	}
 
 	return cmd
+}
+
+func renderScriptsTable(scripts []project.Script) {
+	data := [][]string{}
+
+	for _, script := range scripts {
+		data = append(data, []string{script.Name, script.Command, strings.Join(script.Bindings, ","), script.Path})
+	}
+
+	table := tablewriter.NewWriter(color.Output)
+	table.SetHeader([]string{"name", "command", "binding", "path"})
+
+	for _, v := range data {
+		table.Append(v)
+	}
+
+	table.Render()
 }

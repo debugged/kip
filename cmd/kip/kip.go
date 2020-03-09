@@ -27,7 +27,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// todo: create struct with kip root path etc
 var kipProject project.Project
 var hasKipConfig = false
 
@@ -44,26 +43,21 @@ func main() {
 }
 
 func initConfig() {
-	// Find home directory.
 	wd, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	projectRoot, config, err := loadKipRoot(wd)
+	kipProject, err = loadKipProject(wd)
 
 	hasKipConfig = err == nil
-
-	if hasKipConfig {
-		kipProject = project.GetProject(projectRoot, config)
-	}
 }
 
-func loadKipRoot(path string) (projectRoot string, response *viper.Viper, err error) {
+func loadKipProject(path string) (project.Project, error) {
 	projectConfig := viper.New()
 	projectConfig.AddConfigPath(path)
-	projectConfig.SetConfigName("kip_project")
+	projectConfig.SetConfigName("kip_config")
 	projectConfig.SetConfigType("yaml")
 
 	projectConfig.AutomaticEnv()
@@ -76,11 +70,13 @@ func loadKipRoot(path string) (projectRoot string, response *viper.Viper, err er
 		}
 
 		if path == rootPath {
-			return "", nil, errors.New("kip_project config not found")
+			return nil, errors.New("kip_config not found")
 		}
 
-		return loadKipRoot(newPath)
+		return loadKipProject(newPath)
 	}
 
-	return path, projectConfig, nil
+	project, err := project.GetProject(path, projectConfig)
+
+	return project, err
 }

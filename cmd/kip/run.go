@@ -16,25 +16,26 @@ limitations under the License.
 package main
 
 import (
-	"debugged-dev/kip/v1/internal/project"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
-type newOptions struct {
-	template string
-	generator string
+type addRunOptions struct {
+	service string
 }
 
-func newNewCmd(out io.Writer) *cobra.Command {
-	o := &newOptions{}
+
+func newRunCmd(out io.Writer) *cobra.Command {
+	o := &addRunOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "new [name]",
+		Use:   "run [script-name]",
 		Short: "creates a new kubernetes project",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
@@ -44,49 +45,47 @@ func newNewCmd(out io.Writer) *cobra.Command {
 	to quickly create a Cobra application.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return errors.New("requires a name argument")
+				return errors.New("requires a script name argument")
 			}
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			wd, err := os.Getwd()
-			if err != nil {
-				fmt.Println(err)
+			if !hasKipConfig {
+				fmt.Fprintln(out, color.RedString("run this command inside a kip project"))
 				os.Exit(1)
 			}
 
-			projectName := args[0]
+			scriptName := args[0]
 
-			switch o.template {
-				case "project":
-					err = project.CreateMonoProject(wd, projectName)
-					break;
-				case "service":
-					extraArgs := []string{}
+			var err error
+			project := kipProject
 
-					f := cmd.Flags()
-
-					if f.ArgsLenAtDash() != -1 {
-						extraArgs = f.Args()[f.ArgsLenAtDash():]
-					}
-					err = project.CreateServiceProject(wd, projectName, o.generator, extraArgs)
-					break;
-				default:
-					os.Exit(1)
+			if o.service != "" && kipProject.Template() == "project" {
+				project, err = kipProject.GetService(o.service)
+				
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
+
+			script, err := project.GetScript(scriptName)
+			
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = script.Run([]string{})
 
 			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+				log.Fatal(err)
 			}
-
-			fmt.Printf("project: %s created!\n", projectName)
 		},
 	}
 
 	f := cmd.Flags()
-	f.StringVarP(&o.template, "template", "t", "project", "project | service. A project can contain multiple services")
-	f.StringVarP(&o.generator, "generator", "g", "", "generator used for creating service project")
+
+	f.StringVarP(&o.service, "service", "s", "", "service of script")
+
 
 	return cmd
 }

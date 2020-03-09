@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"debugged-dev/kip/v1/internal/project"
 	"fmt"
 	"io"
 	"os"
@@ -25,10 +26,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newListServiceCmd(out io.Writer) *cobra.Command {
+func newListChartCmd(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "lists all services",
+		Short: "lists all charts",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
 	
@@ -41,26 +42,41 @@ func newListServiceCmd(out io.Writer) *cobra.Command {
 				os.Exit(1)
 			}
 
-			data := [][]string{}
+			switch kipProject.Template() {
+			case "project":
+				fmt.Printf("Charts in project %s\n", kipProject.Name())
+				renderChartsTable(kipProject.Charts())
 
-			for _, service := range kipProject.Services() {
-					if service.HasDockerfile() {
-						data = append(data, []string{service.Name(), "OK"})
-					}else {
-						data = append(data, []string{service.Name(), "Dockerfile not found"})
-					}
+				for _, service := range kipProject.Services() {
+					fmt.Printf("\nCharts in service: %s\n", service.Name())
+					renderChartsTable(service.Charts())
+				}
+
+				break;
+			case "service":
+				fmt.Printf("Charts in service: %s\n", kipProject.Name())
+				renderChartsTable(kipProject.Charts())
+				break;
 			}
-
-			table := tablewriter.NewWriter(color.Output)
-			table.SetHeader([]string{"services", "info"})
-
-			for _, v := range data {
-				table.Append(v)
-			}
-
-			table.Render()
 		},
 	}
 
 	return cmd
+}
+
+func renderChartsTable(charts []project.Chart) {
+	data := [][]string{}
+
+	for _, chart := range charts {
+		data = append(data, []string{chart.Name(), chart.Path()})
+	}
+
+	table := tablewriter.NewWriter(color.Output)
+	table.SetHeader([]string{"charts", "info"})
+
+	for _, v := range data {
+		table.Append(v)
+	}
+
+	table.Render()
 }
