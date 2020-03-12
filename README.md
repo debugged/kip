@@ -8,9 +8,9 @@
 
 > Kip is an easy to use CLI for developing and deploying your kubernetes project.
 
-> # **Notice**
->
-> **Kip is under active development. We're open to suggestions and feedback, please feel free to open an issue**
+# **Notice**
+
+**Kip is under active development. We're open to suggestions and feedback, please feel free to open an issue**
 
 # Description
 
