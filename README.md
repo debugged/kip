@@ -51,7 +51,7 @@ chmod +x ~/.local/bin/kip
 ### Windows
 
 1. Download binary
-2. Add the binary to your PATH.
+2. Add the binary to your $PATH
 
 # Commands
 
