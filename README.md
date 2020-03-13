@@ -89,6 +89,57 @@ The following (optional) flags are available:
 * -h, --help                   Extra information about the kip new command
 ```
 
+### kip service 
+
+Generates a new service in your kip project.
+Example:
+
+```bash
+kip service add foobar
+```
+
+The following commands are available:
+
+```
+* add       generates a new service in your kip project
+* list      lists all services in your kip project
+```
+
+
+### kip build
+
+Builds a service
+Example:
+
+```bash
+kip build foobar
+```
+
+The following (optional) flag is available:
+
+```
+* --all     Builds all services in your kip project
+```
+
+### kip deploy
+
+Deploys a helm chart
+Example:
+
+```bash
+kip deploy 
+```
+
+The following (optional) flags are available:
+
+```
+* -a, --all             deploy all charts (default true)
+* -c, --charts stringArray charts to deploy
+* -s, --service stringArray services to deploy
+* -h, --help                   Extra information about the kip deploy command
+```
+
+
 # Usage
 
 ### 1. Create project
