@@ -32,7 +32,7 @@ make install
 
 ## from release
 
-Downwload binary from: [releases](https://github.com/debugged-software/kip/releases)
+Download binary from: [releases](https://github.com/debugged-software/kip/releases)
 
 ### Linux
 
