@@ -44,6 +44,7 @@ type paths struct {
 	Environments string
 	Scripts string
 	Libraries string
+	BuildPathTemplate string
 }
 
 func (p MonoProject) Name() string {
@@ -58,7 +59,13 @@ func (p MonoProject) Version() string {
 	return p.config.GetString("version")
 }
 
-func (p MonoProject) Paths() paths { 
+func (p MonoProject) Paths() paths {
+	buildPathTemplate := "<serviceDir>";
+
+	if p.config.IsSet("buildPath") && len(p.config.GetString("buildPath")) > 0 {
+		buildPathTemplate = p.config.GetString("buildPath");
+	}
+
 	return paths { 
 		Root: p.path, 
 		Services: filepath.Join(p.path, "services"), 
@@ -66,6 +73,7 @@ func (p MonoProject) Paths() paths {
 		Environments: filepath.Join(p.path, "environments"),
 		Scripts: filepath.Join(p.path, "scripts"),
 		Libraries: filepath.Join(p.path, "libraries"),
+		BuildPathTemplate: buildPathTemplate,
 	}
 }
 

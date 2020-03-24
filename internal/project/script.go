@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -35,45 +36,26 @@ func (s Script) Run(args []string) error {
 
 	cmd := exec.Command(s.Command, cmdArgs...)
 	cmd.Dir = filepath.Join(s.Path, "..")
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	err := cmd.Start()
+	output, err := cmd.Output()
 
 	if err != nil {
 		fmt.Println(err)
 		return err;
 	}
 
-	// cmd := exec.Command("bash ./script.sh")
-	// cmd.Dir = filepath.Join(s.Path, "..")
-	// cmd.Stdout = os.Stdout
-	// cmd.Stderr = os.Stderr
-	// cmd.Env = []string{"MY_VAR=some_value"}
+	outputString := string(output)
 
-	// stdin, err := cmd.StdinPipe()
-
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err := cmd.Start()
-
-	// if err != nil {
-	// 	return err
-	// }
-
-	// _, err = io.WriteString(stdin, "echo test\n")
-
-	// if err != nil {
-	// 		log.Fatal(err)
-	// }
-
-	// _, err = io.WriteString(stdin, "echo bla\n")
+	lines := strings.Split(outputString, "\n")
 	
-	// if err != nil {
-	// 		log.Fatal(err)
-	// }
+	r := regexp.MustCompile(`^(?P<key>.*)(=)(?P<value>.*)$`)
+
+	if 1 > 2 {
+		for _, line := range lines {
+			r.MatchString(line)
+		}
+	}
 
 	return nil
 }

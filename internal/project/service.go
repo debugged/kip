@@ -40,12 +40,33 @@ func (s ServiceProject) Version() string {
 	return s.config.GetString("version")
 }
 
-func (s ServiceProject) Paths() paths { 
+func (s ServiceProject) BuildPath() string {
+	buildPath := s.Paths().BuildPathTemplate
+
+	if s.project != nil {
+		buildPath = s.project.Paths().BuildPathTemplate
+		buildPath = strings.ReplaceAll(buildPath, "<projectDir>", s.project.Paths().Root)
+	}
+
+	buildPath = strings.ReplaceAll(buildPath, "<projectDir>", s.Paths().Root)
+	buildPath = strings.ReplaceAll(buildPath, "<serviceDir>", s.Paths().Root)
+
+	return buildPath
+}
+
+func (s ServiceProject) Paths() paths {
+	buildPathTemplate := "<projectDir>";
+
+	if s.config.IsSet("buildPath") && len(s.config.GetString("buildPath")) > 0 {
+		buildPathTemplate = s.config.GetString("buildPath");
+	}
+
 	return paths { 
 		Root: s.path, 
 		Deployments: filepath.Join(s.path, "deployments"),
 		Environments: filepath.Join(s.path, "environments"),
 		Scripts: filepath.Join(s.path, "scripts"),
+		BuildPathTemplate: buildPathTemplate,
 	}
 }
 
@@ -159,15 +180,24 @@ func (s ServiceProject) HasDockerfile() bool {
 }
 
 func (s ServiceProject) Build(services []string, args []string) error {
-	fmt.Println(s.Paths().Root)
-	
-	cmdArgs := []string{"build", ".", "-t", s.Name() + ":temp"}
+	fmt.Println(s.BuildPath())
+
+	dockerfilePath := filepath.Join(s.Paths().Root, "Dockerfile")
+
+	servicePath, err := filepath.Rel(s.BuildPath(), dockerfilePath)
+
+	if err != nil {
+		fmt.Println(err)
+		return err;
+	}
+
+	cmdArgs := []string{"build", s.BuildPath(), "-f", servicePath, "-t", s.Name() + ":temp"}
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command("docker", cmdArgs...)
-	cmd.Dir = s.Paths().Root
+	cmd.Dir = s.BuildPath()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+	err = cmd.Run()
 
 	if err != nil {
 		fmt.Println(err)
