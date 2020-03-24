@@ -36,7 +36,6 @@ func (s Script) Run(args []string) error {
 
 	cmd := exec.Command(s.Command, cmdArgs...)
 	cmd.Dir = filepath.Join(s.Path, "..")
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	output, err := cmd.Output()
