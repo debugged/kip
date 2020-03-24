@@ -57,6 +57,14 @@ func newRunCmd(out io.Writer) *cobra.Command {
 
 			scriptName := args[0]
 
+			extraArgs := []string{}
+
+			f := cmd.Flags()
+
+			if f.ArgsLenAtDash() != -1 {
+				extraArgs = f.Args()[f.ArgsLenAtDash():]
+			}
+
 			var err error
 			project := kipProject
 
@@ -74,7 +82,7 @@ func newRunCmd(out io.Writer) *cobra.Command {
 				log.Fatal(err)
 			}
 
-			err = script.Run([]string{})
+			err = script.Run(extraArgs)
 
 			if err != nil {
 				log.Fatal(err)
