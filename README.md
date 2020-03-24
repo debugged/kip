@@ -121,6 +121,24 @@ The following (optional) flag is available:
 * --all     Builds all services in your kip project
 ```
 
+
+### kip chart
+
+Creates a Helm chart
+Example:
+
+```bash
+kip chart add foobar -s <servicename>
+```
+
+The following commands are available:
+
+```
+* add     Generates a new Helm chart in your kip project
+* list    Lists all charts in your kip project
+```
+
+
 ### kip deploy
 
 Deploys a helm chart
