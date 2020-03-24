@@ -43,7 +43,7 @@ func (s ServiceProject) Version() string {
 func (s ServiceProject) BuildPath() string {
 	buildPath := s.Paths().BuildPathTemplate
 
-	if s.project != nil {
+	if s.project != nil && !s.config.IsSet("buildPath") {
 		buildPath = s.project.Paths().BuildPathTemplate
 		buildPath = strings.ReplaceAll(buildPath, "<projectDir>", s.project.Paths().Root)
 	}
