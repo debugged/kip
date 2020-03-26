@@ -154,7 +154,7 @@ func (s ServiceProject) GetScripts(binding string) []Script {
 	return scripts
 }
 
-func (s ServiceProject) AddScript(scriptName string, command string, bindings []string) (string, error) {
+func (s ServiceProject) AddScript(scriptName string, command string, bindings []string) error {
 	config := scriptConfig{ Name: scriptName, Command: command, Bindings: bindings }
 
 	scriptConfigs := []scriptConfig{}
@@ -171,7 +171,7 @@ func (s ServiceProject) AddScript(scriptName string, command string, bindings []
 
 	err := s.config.WriteConfig()
 
-	return "", err
+	return err
 }
 
 func (s ServiceProject) HasDockerfile() bool { 

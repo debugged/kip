@@ -19,6 +19,7 @@ import (
 	"debugged-dev/kip/v1/internal/project"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -111,6 +112,19 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
+			preDeployscripts := kipProject.GetScripts("pre-deploy")
+
+			if len(preDeployscripts) > 0 {
+				for _, script := range preDeployscripts {
+					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
+
+					err := script.Run([]string{})
+					if err != nil {
+						log.Fatalf("error running script \"%s\": %v", script.Name, err)
+					}
+				}
+			}
+
 			chartNames := filter.Apply(chartsToDeploy, func (c project.Chart) string  {
 				return c.Name()
 			}).([]string)
@@ -126,6 +140,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 				if err != nil {
 					fmt.Fprintln(out, err)
+					fmt.Fprintf(out, color.RedString("image: \"%s\" not found be sure to run kip build first\n"), service.Name())
 					os.Exit(1)
 				}
 

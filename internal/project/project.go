@@ -23,7 +23,7 @@ type Project interface {
 	GetService(name string) (*ServiceProject, error)
 	GetScript(name string) (*Script, error)
 	GetScripts(binding string) []Script
-	AddScript(name string, command string, bindings []string) (string, error)
+	AddScript(name string, command string, bindings []string) error
 }
 
 // MonoProject defined a project that contains multiple services
@@ -120,7 +120,7 @@ func (p MonoProject) GetScripts(binding string) []Script {
 	}
 
 	scripts = filter.Apply(scripts, func (s Script) Script  {
-		s.Path = filepath.Join(p.Paths().Scripts, s.Name)
+		s.Path = p.Paths().Root
 		return s
 	}).([]Script)
 
@@ -138,7 +138,7 @@ func (p MonoProject) GetScripts(binding string) []Script {
 	return scripts
 }
 
-func (p MonoProject) AddScript(scriptName string, command string, bindings []string) (string, error) {
+func (p MonoProject) AddScript(scriptName string, command string, bindings []string) error {
 	config := scriptConfig{ Name: scriptName, Command: command, Bindings: bindings }
 
 	scriptConfigs := []scriptConfig{}
@@ -155,7 +155,7 @@ func (p MonoProject) AddScript(scriptName string, command string, bindings []str
 
 	err := p.config.WriteConfig()
 
-	return "", err
+	return err
 }
 
 func (p MonoProject) New(name string) error {

@@ -55,6 +55,8 @@ func initConfig() {
 }
 
 func loadKipProject(path string) (project.Project, error) {
+	var kipProject project.Project
+	var err error
 	projectConfig := viper.New()
 	projectConfig.AddConfigPath(path)
 	projectConfig.SetConfigName("kip_config")
@@ -76,7 +78,21 @@ func loadKipProject(path string) (project.Project, error) {
 		return loadKipProject(newPath)
 	}
 
-	project, err := project.GetProject(path, projectConfig)
+	if projectConfig.GetString("template") == "service" {
+		newPath, err := filepath.Abs(filepath.Join(path, ".."))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 
-	return project, err
+		rootProject, err := loadKipProject(newPath)
+		
+		if err == nil {
+			return rootProject, nil
+		}
+	}
+
+	kipProject, err = project.GetProject(path, projectConfig)
+
+	return kipProject, err
 }

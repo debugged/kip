@@ -63,6 +63,10 @@ func (c Chart) Deploy(args []string) error {
 func getCharts(path string, prefix string) []Chart {
 	charts := []Chart{}
 
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return charts;
+	}
+
 	files, err := ioutil.ReadDir(path)
 			if err != nil {
 					log.Fatal(err)

@@ -55,7 +55,6 @@ func newAddScriptCmd(out io.Writer) *cobra.Command {
 
 			scriptName := args[0]
 
-			var path string = ""
 			var err error
 
 			if o.service != "" && kipProject.Template() == "project" {
@@ -65,20 +64,20 @@ func newAddScriptCmd(out io.Writer) *cobra.Command {
 					log.Fatal(err)
 				}
 
-				path, err = service.AddScript(scriptName, o.command, o.bindings)
+				err = service.AddScript(scriptName, o.command, o.bindings)
 
 				if err != nil {
 					log.Fatal(err)
 				}
 			}else {
-				path, err = kipProject.AddScript(scriptName, o.command, o.bindings)
+				err = kipProject.AddScript(scriptName, o.command, o.bindings)
 
 				if err != nil {
 					log.Fatal(err)
 				}
 			}
 
-			fmt.Printf("created in %s\n", path)
+			fmt.Printf("script config added")
 		},
 	}
 
