@@ -32,6 +32,7 @@ type deployOptions struct {
 	all bool
 	charts []string
 	services []string
+	environment string
 }
 
 func newDeployCmd(out io.Writer) *cobra.Command {
@@ -66,6 +67,10 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 			if(o.all && len(o.charts) > 0) {
 				o.all = false
+			}
+
+			if o.environment == "" {
+				o.environment =  kipProject.Environment()
 			}
 			
 			if o.all {
@@ -112,7 +117,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			preDeployscripts := kipProject.GetScripts("pre-deploy")
+			preDeployscripts := kipProject.GetScripts("pre-deploy", o.environment)
 
 			if len(preDeployscripts) > 0 {
 				for _, script := range preDeployscripts {
@@ -156,11 +161,25 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			fmt.Fprintf(out, "Deploying services: %s\n\n", strings.Join(serviceNames, ","))
 			deployCharts(out, chartsToDeploy, extraArgs)
 			deployServices(out, servicesToDeploy, extraArgs)
+
+			postDeployscripts := kipProject.GetScripts("post-deploy", o.environment)
+
+			if len(postDeployscripts) > 0 {
+				for _, script := range postDeployscripts {
+					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
+
+					err := script.Run([]string{})
+					if err != nil {
+						log.Fatalf("error running script \"%s\": %v", script.Name, err)
+					}
+				}
+			}
 		},
 	}
 
 	f := cmd.Flags()
 	f.BoolVarP(&o.all, "all", "a", true, "deploy all charts")
+	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
 	f.StringArrayVarP(&o.charts, "charts", "c", []string{}, "charts to deploy")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to deploy")
 

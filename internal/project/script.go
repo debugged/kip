@@ -19,6 +19,7 @@ type scriptConfig struct {
 	Command string
 	Bindings []string
 	Args []string
+	Environments []string
 }
 
 type Script struct {
@@ -27,6 +28,7 @@ type Script struct {
 	Path string
 	Bindings []string
 	Args []string
+	Environments []string
 }
 
 func (s Script) Run(args []string) error {

@@ -46,17 +46,17 @@ func newListScriptCmd(out io.Writer) *cobra.Command {
 			switch kipProject.Template() {
 			case "project":
 				fmt.Printf("Scripts in project %s\n", kipProject.Name())
-				renderScriptsTable(kipProject.GetScripts(""))
+				renderScriptsTable(kipProject.GetScripts("", ""))
 
 				for _, service := range kipProject.Services() {
 					fmt.Printf("\nScripts in service: %s\n", service.Name())
-					renderScriptsTable(service.GetScripts(""))
+					renderScriptsTable(service.GetScripts("", ""))
 				}
 
 				break;
 			case "service":
 				fmt.Printf("Scripts in service: %s\n", kipProject.Name())
-				renderScriptsTable(kipProject.GetScripts(""))
+				renderScriptsTable(kipProject.GetScripts("", ""))
 				break;
 			}
 		},

@@ -31,6 +31,7 @@ import (
 type buildOptions struct {
 	all bool
 	services []string
+	environment string
 }
 
 func newBuildCmd(out io.Writer) *cobra.Command {
@@ -57,6 +58,10 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 
 			if !o.all && len(o.services) == 0 {
 				o.all = true
+			}
+
+			if o.environment == "" {
+				o.environment =  kipProject.Environment()
 			}
 
 			if o.all && len(o.services) > 0 {
@@ -92,7 +97,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 
 			fmt.Fprintf(out, "Building services: %s\n\n", strings.Join(serviceNames, ","))
 
-			preBuildscripts := kipProject.GetScripts("pre-build")
+			preBuildscripts := kipProject.GetScripts("pre-build", o.environment)
 
 			if len(preBuildscripts) > 0 {
 				for _, script := range preBuildscripts {
@@ -106,11 +111,25 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 			}
 
 			buildServices(out, servicesToBuild, extraArgs)
+
+			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
+
+			if len(postBuildscripts) > 0 {
+				for _, script := range postBuildscripts {
+					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
+
+					err := script.Run([]string{})
+					if err != nil {
+						log.Fatalf("error running script \"%s\": %v", script.Name, err)
+					}
+				}
+			}
 		},
 	}
 
 	f := cmd.Flags()
 	f.BoolVarP(&o.all, "all", "a", false, "build all services (default)")
+	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to build")
 
 	return cmd

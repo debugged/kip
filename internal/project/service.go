@@ -36,6 +36,10 @@ func (s ServiceProject) Template() string {
 	return s.config.GetString("template")
 }
 
+func (s ServiceProject) Environment() string { 
+	return s.config.GetString("environment")
+}
+
 func (s ServiceProject) Version() string { 
 	return s.config.GetString("version")
 }
@@ -95,6 +99,7 @@ func (s ServiceProject) New(name string, generatorName string, args []string) er
 
 	config.Set("template", "service")
 	config.Set("version", version.Get().Version)
+	config.Set("environment", "dev")
 
 	config.SafeWriteConfig()
 
@@ -118,7 +123,7 @@ func (s ServiceProject) AddChart(chartName string, args []string) (string, error
 }
 
 func (s ServiceProject) GetScript(name string) (*Script, error) {
-	for _, script := range s.GetScripts("") {
+	for _, script := range s.GetScripts("", "") {
 		if script.Name == name {
 			return &script, nil
 		}
@@ -127,7 +132,7 @@ func (s ServiceProject) GetScript(name string) (*Script, error) {
 	return nil, fmt.Errorf("script \"%s\" not found", name)
 }
 
-func (s ServiceProject) GetScripts(binding string) []Script {
+func (s ServiceProject) GetScripts(binding string, environment string) []Script {
 	var scripts []Script
 	err := s.config.UnmarshalKey("scripts", &scripts)
 
@@ -151,6 +156,22 @@ func (s ServiceProject) GetScripts(binding string) []Script {
 		}).([]Script)
 	}
 	
+	if environment != "" {
+		scripts = filter.Choose(scripts, func (s Script) bool  {
+			
+			if len(s.Environments) == 0 {
+				return true
+			}
+
+			for _, value := range s.Environments {
+				if value == environment {
+					return true
+				}
+			}
+			return false
+		}).([]Script)
+	}
+
 	return scripts
 }
 
@@ -159,7 +180,7 @@ func (s ServiceProject) AddScript(scriptName string, command string, bindings []
 
 	scriptConfigs := []scriptConfig{}
 
-	for _, script := range s.GetScripts("") {
+	for _, script := range s.GetScripts("", "") {
 		scriptConfigs = append(scriptConfigs, scriptConfig{ Name: script.Name, Command: script.Command, Bindings: script.Bindings })
 	} 
 

@@ -16,13 +16,14 @@ type Project interface {
 	Name() string
 	Version() string
 	Template() string
+	Environment() string
 	Paths() paths
 	Charts() []Chart
 	AddChart(chartName string, args []string) (string, error)
 	Services() []ServiceProject
 	GetService(name string) (*ServiceProject, error)
 	GetScript(name string) (*Script, error)
-	GetScripts(binding string) []Script
+	GetScripts(binding string, environment string) []Script
 	AddScript(name string, command string, bindings []string) error
 }
 
@@ -53,6 +54,10 @@ func (p MonoProject) Name() string {
 
 func (p MonoProject) Template() string { 
 	return p.config.GetString("template")
+}
+
+func (p MonoProject) Environment() string { 
+	return p.config.GetString("environment")
 }
 
 func (p MonoProject) Version() string { 
@@ -102,7 +107,7 @@ func (p MonoProject) AddChart(chartName string, args []string) (string, error) {
 }
 
 func (p MonoProject) GetScript(name string) (*Script, error) {
-	for _, script := range p.GetScripts("") {
+	for _, script := range p.GetScripts("", "") {
 		if script.Name == name {
 			return &script, nil
 		}
@@ -111,7 +116,7 @@ func (p MonoProject) GetScript(name string) (*Script, error) {
 	return nil, fmt.Errorf("script \"%s\" not found", name)
 }
 
-func (p MonoProject) GetScripts(binding string) []Script {
+func (p MonoProject) GetScripts(binding string, environment string) []Script {
 	var scripts []Script
 	err := p.config.UnmarshalKey("scripts", &scripts)
 
@@ -134,6 +139,22 @@ func (p MonoProject) GetScripts(binding string) []Script {
 			return false
 		}).([]Script)
 	}
+
+	if environment != "" {
+		scripts = filter.Choose(scripts, func (s Script) bool  {
+
+			if len(s.Environments) == 0 {
+				return true
+			}
+
+			for _, value := range s.Environments {
+				if value == environment {
+					return true
+				}
+			}
+			return false
+		}).([]Script)
+	}
 	
 	return scripts
 }
@@ -143,7 +164,7 @@ func (p MonoProject) AddScript(scriptName string, command string, bindings []str
 
 	scriptConfigs := []scriptConfig{}
 
-	for _, script := range p.GetScripts("") {
+	for _, script := range p.GetScripts("", "") {
 		scriptConfigs = append(scriptConfigs, scriptConfig{ Name: script.Name, Command: script.Command, Bindings: script.Bindings })
 	} 
 
@@ -179,6 +200,7 @@ func (p MonoProject) New(name string) error {
 
 	config.Set("template", "project")
 	config.Set("version", version.Get().Version)
+	config.Set("environment", "dev")
 
 	err := config.SafeWriteConfig()
 
