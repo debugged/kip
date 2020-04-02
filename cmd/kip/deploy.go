@@ -33,6 +33,7 @@ type deployOptions struct {
 	charts []string
 	services []string
 	environment string
+	repository string
 }
 
 func newDeployCmd(out io.Writer) *cobra.Command {
@@ -71,6 +72,10 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 			if o.environment == "" {
 				o.environment =  kipProject.Environment()
+			}
+
+			if o.repository == "" {
+				o.repository =  kipProject.Repository()
 			}
 			
 			if o.all {
@@ -141,7 +146,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			imageArgs := []string{}
 
 			for _, service := range services {
-				buildID, err := service.GetImageID("latest")
+				buildID, err := service.GetImageID("latest", o.repository)
 
 				if err != nil {
 					fmt.Fprintln(out, err)
@@ -151,7 +156,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 				serviceKey := strings.ReplaceAll(service.Name(), "-", "_")
 
-				imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".name="+service.Name()}...)
+				imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".name="+o.repository+service.Name()}...)
 				imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".tag="+buildID}...)
 			}
 
@@ -180,6 +185,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVarP(&o.all, "all", "a", true, "deploy all charts")
 	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
+	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
 	f.StringArrayVarP(&o.charts, "charts", "c", []string{}, "charts to deploy")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to deploy")
 

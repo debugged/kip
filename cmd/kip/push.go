@@ -28,19 +28,19 @@ import (
 	"robpike.io/filter"
 )
 
-type buildOptions struct {
+type pushOptions struct {
 	all bool
 	services []string
 	environment string
 	repository string
 }
 
-func newBuildCmd(out io.Writer) *cobra.Command {
-	o := &buildOptions{}
+func newPushCmd(out io.Writer) *cobra.Command {
+	o := &pushOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "build",
-		Short: "builds a service",
+		Use:   "push",
+		Short: "push images",
 		Long: `A longer description that spans multiple lines and likely contains examples
 	and usage of using your command. For example:
 	
@@ -55,7 +55,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 			extraArgs := cmd.Flags().Args()
 			
 			services := kipProject.Services()
-			servicesToBuild := []project.ServiceProject{}
+			servicesToPush := []project.ServiceProject{}
 
 			if !o.all && len(o.services) == 0 {
 				o.all = true
@@ -75,7 +75,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 			}
 			
 			if o.all {
-				servicesToBuild = append(servicesToBuild, services...)
+				servicesToPush = append(servicesToPush, services...)
 			}else if len(o.services) > 0 {
 
 				for _, serviceName := range o.services {
@@ -88,7 +88,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 					}
 
 					if foundService != nil {
-						servicesToBuild = append(servicesToBuild, foundService.(project.ServiceProject))
+						servicesToPush = append(servicesToPush, foundService.(project.ServiceProject))
 					}else {
 						fmt.Fprintf(out, "service \"%s\" does not exist in project\n", serviceName)
 						os.Exit(1)
@@ -96,16 +96,16 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				}				
 			}
 
-			serviceNames := filter.Apply(servicesToBuild, func (s project.ServiceProject) string  {
+			serviceNames := filter.Apply(servicesToPush, func (s project.ServiceProject) string  {
 				return s.Name()
 			}).([]string)
 
-			fmt.Fprintf(out, "Building services: %s\n\n", strings.Join(serviceNames, ","))
+			fmt.Fprintf(out, "Pushing services: %s\n\n", strings.Join(serviceNames, ","))
 
-			preBuildscripts := kipProject.GetScripts("pre-build", o.environment)
+			prePushscripts := kipProject.GetScripts("pre-push", o.environment)
 
-			if len(preBuildscripts) > 0 {
-				for _, script := range preBuildscripts {
+			if len(prePushscripts) > 0 {
+				for _, script := range prePushscripts {
 					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
 
 					err := script.Run([]string{})
@@ -115,7 +115,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			buildServices(out, servicesToBuild, o.repository, extraArgs)
+			pushServices(out, servicesToPush, o.repository, extraArgs)
 
 			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
 
@@ -136,20 +136,20 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 	f.BoolVarP(&o.all, "all", "a", false, "build all services (default)")
 	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
 	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
-	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to build")
+	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to push")
 
 	return cmd
 }
 
-func buildServices(out io.Writer, services []project.ServiceProject, repository string, args []string) {
+func pushServices(out io.Writer, services []project.ServiceProject, repository string, args []string) {
 	for _, service := range services {
 		if service.HasDockerfile() {
-			fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
-			buildErr := service.Build(repository, args)
-			if buildErr == nil {
-				fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
+			fmt.Fprintf(out, color.BlueString("PUSH service: \"%s\"\n"), service.Name())
+			pushErr := service.Push(repository, args)
+			if pushErr == nil {
+				fmt.Fprintf(out, color.BlueString("PUSH %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
 			}else {
-				fmt.Fprint(out, buildErr)
+				fmt.Fprint(out, pushErr)
 				os.Exit(1)
 			}
 		}else {

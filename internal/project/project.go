@@ -17,6 +17,7 @@ type Project interface {
 	Version() string
 	Template() string
 	Environment() string
+	Repository() string
 	Paths() paths
 	Charts() []Chart
 	AddChart(chartName string, args []string) (string, error)
@@ -58,6 +59,10 @@ func (p MonoProject) Template() string {
 
 func (p MonoProject) Environment() string { 
 	return p.config.GetString("environment")
+}
+
+func (p MonoProject) Repository() string { 
+	return p.config.GetString("repository")
 }
 
 func (p MonoProject) Version() string { 
@@ -212,9 +217,9 @@ func (p MonoProject) New(name string) error {
 	return nil
 }
 
-func (p MonoProject) Build(services []string, args []string) error {
+func (p MonoProject) Build(services []string, repository string, args []string) error {
 	for _, service := range p.Services() {
-		err := service.Build(nil, args)
+		err := service.Build(repository, args)
 
 		if err != nil {
 			return err
