@@ -29,11 +29,11 @@ import (
 )
 
 type deployOptions struct {
-	all bool
-	charts []string
-	services []string
+	all         bool
+	charts      []string
+	services    []string
 	environment string
-	repository string
+	repository  string
 }
 
 func newDeployCmd(out io.Writer) *cobra.Command {
@@ -53,35 +53,35 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 				fmt.Fprintln(out, color.RedString("run this command inside a kip project"))
 				os.Exit(1)
 			}
-			
+
 			extraArgs := cmd.Flags().Args()
-			
+
 			charts := kipProject.Charts()
 			services := kipProject.Services()
 			chartsToDeploy := []project.Chart{}
 			servicesToDeploy := []project.ServiceProject{}
 
-			if(!o.all && len(o.charts) == 0) {
+			if !o.all && len(o.charts) == 0 {
 				fmt.Fprint(out, "specify what to deploy using -c or -s required or use --all | -a to deploy all charts and services\n")
 				os.Exit(1)
 			}
 
-			if(o.all && len(o.charts) > 0) {
+			if o.all && len(o.charts) > 0 {
 				o.all = false
 			}
 
 			if o.environment == "" {
-				o.environment =  kipProject.Environment()
+				o.environment = kipProject.Environment()
 			}
 
 			if o.repository == "" {
-				o.repository =  kipProject.Repository()
+				o.repository = kipProject.Repository()
 			}
-			
+
 			if o.all {
 				chartsToDeploy = append(chartsToDeploy, charts...)
 				servicesToDeploy = append(servicesToDeploy, services...)
-			}else {
+			} else {
 				if len(o.charts) > 0 {
 
 					for _, chartName := range o.charts {
@@ -89,17 +89,17 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 						for _, chart := range charts {
 							if chart.Name() == chartName {
 								foundChart = &chart
-								break;
+								break
 							}
 						}
-	
+
 						if foundChart != nil {
 							chartsToDeploy = append(chartsToDeploy, *foundChart)
-						}else {
+						} else {
 							fmt.Fprintf(out, "chart \"%s\" does not exist in project\n", chartName)
 							os.Exit(1)
 						}
-					}				
+					}
 				}
 
 				if len(o.services) > 0 {
@@ -108,17 +108,17 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 						for _, service := range services {
 							if service.Name() == serviceName {
 								foundService = service
-								break;
+								break
 							}
 						}
-	
+
 						if foundService != (project.ServiceProject{}) {
 							servicesToDeploy = append(servicesToDeploy, foundService)
-						}else {
+						} else {
 							fmt.Fprintf(out, "service \"%s\" does not exist in project\n", serviceName)
 							os.Exit(1)
 						}
-					}	
+					}
 				}
 			}
 
@@ -135,29 +135,33 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			chartNames := filter.Apply(chartsToDeploy, func (c project.Chart) string  {
+			chartNames := filter.Apply(chartsToDeploy, func(c project.Chart) string {
 				return c.Name()
 			}).([]string)
 
-			serviceNames := filter.Apply(servicesToDeploy, func (s project.ServiceProject) string  {
+			serviceNames := filter.Apply(servicesToDeploy, func(s project.ServiceProject) string {
 				return s.Name()
 			}).([]string)
 
 			imageArgs := []string{}
 
 			for _, service := range services {
-				buildID, err := service.GetImageID("latest", o.repository)
+				if service.HasDockerfile() {
+					buildID, err := service.GetImageID("latest", o.repository)
 
-				if err != nil {
-					fmt.Fprintln(out, err)
-					fmt.Fprintf(out, color.RedString("image: \"%s\" not found be sure to run kip build first\n"), service.Name())
-					os.Exit(1)
+					if err != nil {
+						fmt.Fprintln(out, err)
+						fmt.Fprintf(out, color.RedString("image: \"%s\" not found be sure to run kip build first\n"), service.Name())
+						os.Exit(1)
+					}
+
+					serviceKey := strings.ReplaceAll(service.Name(), "-", "_")
+
+					imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".name=" + o.repository + service.Name()}...)
+					imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".tag=" + buildID}...)
+				} else {
+					fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
 				}
-
-				serviceKey := strings.ReplaceAll(service.Name(), "-", "_")
-
-				imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".name="+o.repository+service.Name()}...)
-				imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".tag="+buildID}...)
 			}
 
 			extraArgs = append(extraArgs, imageArgs...)
@@ -195,13 +199,13 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 func deployCharts(out io.Writer, charts []project.Chart, args []string) {
 	for _, chart := range charts {
 		fmt.Fprintf(out, color.BlueString("DEPLOY chart: \"%s\"\n"), chart.Name())
-			buildErr := chart.Deploy(args)
-			if buildErr == nil {
-				fmt.Fprintf(out, color.BlueString("DEPLOY chart: %s %s\n\n"), chart.Name(), color.GreenString("SUCCESS"))
-			}else {
-				fmt.Fprint(out, buildErr)
-				os.Exit(1)
-			}		
+		buildErr := chart.Deploy(args)
+		if buildErr == nil {
+			fmt.Fprintf(out, color.BlueString("DEPLOY chart: %s %s\n\n"), chart.Name(), color.GreenString("SUCCESS"))
+		} else {
+			fmt.Fprint(out, buildErr)
+			os.Exit(1)
+		}
 	}
 }
 
