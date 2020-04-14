@@ -18,8 +18,8 @@ import (
 )
 
 type ServiceProject struct {
-	path string
-	config *viper.Viper
+	path    string
+	config  *viper.Viper
 	project *MonoProject
 }
 
@@ -28,19 +28,19 @@ func CreateServiceProject(path string, name string, generatorName string, args [
 	return p.New(name, generatorName, args)
 }
 
-func (s ServiceProject) Name() string { 
+func (s ServiceProject) Name() string {
 	return filepath.Base(s.path)
 }
 
-func (s ServiceProject) Template() string { 
+func (s ServiceProject) Template() string {
 	return s.config.GetString("template")
 }
 
-func (s ServiceProject) Environment() string { 
+func (s ServiceProject) Environment() string {
 	return s.config.GetString("environment")
 }
 
-func (s ServiceProject) Repository() string { 
+func (s ServiceProject) Repository() string {
 
 	if s.project != nil && !s.config.IsSet("repository") {
 		return s.project.Repository()
@@ -49,7 +49,7 @@ func (s ServiceProject) Repository() string {
 	return s.config.GetString("repository")
 }
 
-func (s ServiceProject) Version() string { 
+func (s ServiceProject) Version() string {
 	return s.config.GetString("version")
 }
 
@@ -68,17 +68,17 @@ func (s ServiceProject) BuildPath() string {
 }
 
 func (s ServiceProject) Paths() paths {
-	buildPathTemplate := "<projectDir>";
+	buildPathTemplate := "<projectDir>"
 
 	if s.config.IsSet("buildPath") && len(s.config.GetString("buildPath")) > 0 {
-		buildPathTemplate = s.config.GetString("buildPath");
+		buildPathTemplate = s.config.GetString("buildPath")
 	}
 
-	return paths { 
-		Root: s.path, 
-		Deployments: filepath.Join(s.path, "deployments"),
-		Environments: filepath.Join(s.path, "environments"),
-		Scripts: filepath.Join(s.path, "scripts"),
+	return paths{
+		Root:              s.path,
+		Deployments:       filepath.Join(s.path, "deployments"),
+		Environments:      filepath.Join(s.path, "environments"),
+		Scripts:           filepath.Join(s.path, "scripts"),
 		BuildPathTemplate: buildPathTemplate,
 	}
 }
@@ -115,7 +115,7 @@ func (s ServiceProject) New(name string, generatorName string, args []string) er
 	return nil
 }
 
-func (s ServiceProject) Services() []ServiceProject  {
+func (s ServiceProject) Services() []ServiceProject {
 	return []ServiceProject{s}
 }
 
@@ -123,7 +123,7 @@ func (p ServiceProject) GetService(name string) (*ServiceProject, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s ServiceProject) Charts() []Chart  {
+func (s ServiceProject) Charts() []Chart {
 	return getCharts(s.Paths().Deployments, s.Name())
 }
 
@@ -149,13 +149,13 @@ func (s ServiceProject) GetScripts(binding string, environment string) []Script 
 		log.Fatalf("unable to decode into struct, %v", err)
 	}
 
-	scripts = filter.Apply(scripts, func (script Script) Script  {
+	scripts = filter.Apply(scripts, func(script Script) Script {
 		script.Path = filepath.Join(s.Paths().Scripts, script.Name)
 		return script
 	}).([]Script)
 
 	if binding != "" {
-		scripts = filter.Choose(scripts, func (s Script) bool  {
+		scripts = filter.Choose(scripts, func(s Script) bool {
 			for _, value := range s.Bindings {
 				if value == binding {
 					return true
@@ -164,10 +164,10 @@ func (s ServiceProject) GetScripts(binding string, environment string) []Script 
 			return false
 		}).([]Script)
 	}
-	
+
 	if environment != "" {
-		scripts = filter.Choose(scripts, func (s Script) bool  {
-			
+		scripts = filter.Choose(scripts, func(s Script) bool {
+
 			if len(s.Environments) == 0 {
 				return true
 			}
@@ -185,17 +185,15 @@ func (s ServiceProject) GetScripts(binding string, environment string) []Script 
 }
 
 func (s ServiceProject) AddScript(scriptName string, command string, bindings []string) error {
-	config := scriptConfig{ Name: scriptName, Command: command, Bindings: bindings }
+	config := scriptConfig{Name: scriptName, Command: command, Bindings: bindings}
 
 	scriptConfigs := []scriptConfig{}
 
 	for _, script := range s.GetScripts("", "") {
-		scriptConfigs = append(scriptConfigs, scriptConfig{ Name: script.Name, Command: script.Command, Bindings: script.Bindings })
-	} 
-
+		scriptConfigs = append(scriptConfigs, scriptConfig{Name: script.Name, Command: script.Command, Bindings: script.Bindings})
+	}
 
 	scriptConfigs = append(scriptConfigs, config)
-
 
 	s.config.Set("scripts", scriptConfigs)
 
@@ -204,7 +202,7 @@ func (s ServiceProject) AddScript(scriptName string, command string, bindings []
 	return err
 }
 
-func (s ServiceProject) HasDockerfile() bool { 
+func (s ServiceProject) HasDockerfile() bool {
 	_, err := os.Stat(filepath.Join(s.path, "Dockerfile"))
 	return !os.IsNotExist(err)
 }
@@ -220,7 +218,7 @@ func (s ServiceProject) Build(repository string, args []string) error {
 
 	if err != nil {
 		fmt.Println(err)
-		return err;
+		return err
 	}
 
 	cmdArgs := []string{"build", s.BuildPath(), "-f", servicePath, "-t", repository + s.Name() + ":temp"}
@@ -233,29 +231,28 @@ func (s ServiceProject) Build(repository string, args []string) error {
 
 	if err != nil {
 		fmt.Println(err)
-		return err;
+		return err
 	}
 
 	tempID, err := s.GetImageID("temp", repository)
 
 	if err != nil {
 		fmt.Println(err)
-		return err;
+		return err
 	}
-
 
 	err = s.TagImage("temp", tempID, repository)
 
 	if err != nil {
 		fmt.Println(err)
-		return err;
+		return err
 	}
 
 	err = s.TagImage("temp", "latest", repository)
 
 	if err != nil {
 		fmt.Println(err)
-		return err;
+		return err
 	}
 
 	return nil
@@ -271,7 +268,7 @@ func (s ServiceProject) Push(repository string, args []string) error {
 
 	if err != nil {
 		fmt.Println(err)
-		return err;
+		return err
 	}
 
 	cmdArgs := []string{"push", repository + s.Name() + ":" + imageID}
@@ -284,39 +281,38 @@ func (s ServiceProject) Push(repository string, args []string) error {
 
 	if err != nil {
 		fmt.Println(err)
-		return err;
+		return err
 	}
-	
+
 	return nil
 }
 
-func (s ServiceProject) GetImageID(tag string, repository string) (string, error)  {
-	fmt.Println("tag with:"+repository)
-	cmd := exec.Command("docker", "inspect", "--format", "{{.Id}}", repository+s.Name() + ":" + tag)
+func (s ServiceProject) GetImageID(tag string, repository string) (string, error) {
+	cmd := exec.Command("docker", "inspect", "--format", "{{.Id}}", repository+s.Name()+":"+tag)
 	cmd.Dir = s.Paths().Root
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err := cmd.Run()
 
 	if err != nil {
-		return "", err;
+		return "", err
 	}
 
 	imageID := strings.TrimSpace(out.String())
 
-	return imageID[7:19], nil;
+	return imageID[7:19], nil
 }
 
 func (s ServiceProject) TagImage(currentTag string, newTag string, repository string) error {
 
-	cmd := exec.Command("docker", "tag", repository + s.Name() + ":" + currentTag, repository + s.Name() + ":" + newTag)
+	cmd := exec.Command("docker", "tag", repository+s.Name()+":"+currentTag, repository+s.Name()+":"+newTag)
 	cmd.Dir = s.Paths().Root
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 
 	if err != nil {
-		return err;
+		return err
 	}
 
 	fmt.Printf("Successfully tagged %s:%s\n", s.Name(), newTag)
@@ -328,34 +324,33 @@ func getServices(path string, project *MonoProject) []ServiceProject {
 	services := []ServiceProject{}
 
 	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, f := range files {
+		if f.IsDir() {
+			serviceName := f.Name()
+			servicePath := filepath.Join(path, serviceName)
+
+			serviceConfig := viper.New()
+			serviceConfig.AddConfigPath(servicePath)
+			serviceConfig.SetConfigName("kip_config")
+			serviceConfig.SetConfigType("yaml")
+
+			serviceConfig.AutomaticEnv()
+
+			err := serviceConfig.ReadInConfig()
+
 			if err != nil {
-					log.Fatal(err)
+				log.Fatal(err)
 			}
-			
 
-			for _, f := range files {
-				if f.IsDir() {
-					serviceName := f.Name()
-					servicePath := filepath.Join(path, serviceName)
-
-					serviceConfig := viper.New()
-					serviceConfig.AddConfigPath(servicePath)
-					serviceConfig.SetConfigName("kip_config")
-					serviceConfig.SetConfigType("yaml")
-				
-					serviceConfig.AutomaticEnv()
-				
-					err := serviceConfig.ReadInConfig()
-
-					if err != nil {
-						log.Fatal(err)
-					}
-
-					var s ServiceProject
-					s = ServiceProject{path: servicePath, project: project, config: serviceConfig}
-					services = append(services, s)
-				}
-			}
+			var s ServiceProject
+			s = ServiceProject{path: servicePath, project: project, config: serviceConfig}
+			services = append(services, s)
+		}
+	}
 
 	return services
 }
