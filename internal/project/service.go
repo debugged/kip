@@ -70,7 +70,7 @@ func (s ServiceProject) BuildPath() string {
 func (s ServiceProject) Paths() paths {
 	buildPathTemplate := "<projectDir>"
 
-	if s.config.IsSet("buildPath") && len(s.config.GetString("buildPath")) > 0 {
+	if s.config != nil && s.config.IsSet("buildPath") && len(s.config.GetString("buildPath")) > 0 {
 		buildPathTemplate = s.config.GetString("buildPath")
 	}
 
