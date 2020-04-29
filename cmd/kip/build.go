@@ -29,10 +29,11 @@ import (
 )
 
 type buildOptions struct {
-	all bool
-	services []string
+	all         bool
+	services    []string
 	environment string
-	repository string
+	repository  string
+	key         string
 }
 
 func newBuildCmd(out io.Writer) *cobra.Command {
@@ -53,7 +54,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 			}
 
 			extraArgs := cmd.Flags().Args()
-			
+
 			services := kipProject.Services()
 			servicesToBuild := []project.ServiceProject{}
 
@@ -62,41 +63,41 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 			}
 
 			if o.environment == "" {
-				o.environment =  kipProject.Environment()
+				o.environment = kipProject.Environment()
 			}
 
 			if o.repository == "" {
-				o.repository =  kipProject.Repository()
-			} 
+				o.repository = kipProject.Repository()
+			}
 
 			if o.all && len(o.services) > 0 {
 				fmt.Fprintf(out, "WARN: --all is ignored when --service is used\n")
 				o.all = false
 			}
-			
+
 			if o.all {
 				servicesToBuild = append(servicesToBuild, services...)
-			}else if len(o.services) > 0 {
+			} else if len(o.services) > 0 {
 
 				for _, serviceName := range o.services {
 					var foundService project.Project = nil
 					for _, service := range services {
 						if service.Name() == serviceName {
 							foundService = service
-							break;
+							break
 						}
 					}
 
 					if foundService != nil {
 						servicesToBuild = append(servicesToBuild, foundService.(project.ServiceProject))
-					}else {
+					} else {
 						fmt.Fprintf(out, "service \"%s\" does not exist in project\n", serviceName)
 						os.Exit(1)
 					}
-				}				
+				}
 			}
 
-			serviceNames := filter.Apply(servicesToBuild, func (s project.ServiceProject) string  {
+			serviceNames := filter.Apply(servicesToBuild, func(s project.ServiceProject) string {
 				return s.Name()
 			}).([]string)
 
@@ -115,7 +116,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			buildServices(out, servicesToBuild, o.repository, extraArgs)
+			buildServices(out, servicesToBuild, o.repository, o.key, extraArgs)
 
 			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
 
@@ -136,24 +137,25 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 	f.BoolVarP(&o.all, "all", "a", false, "build all services (default)")
 	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
 	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
+	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to build")
 
 	return cmd
 }
 
-func buildServices(out io.Writer, services []project.ServiceProject, repository string, args []string) {
+func buildServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string) {
 	for _, service := range services {
 		if service.HasDockerfile() {
 			fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
-			buildErr := service.Build(repository, args)
+			buildErr := service.Build(repository, key, args)
 			if buildErr == nil {
 				fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
-			}else {
+			} else {
 				fmt.Fprint(out, buildErr)
 				os.Exit(1)
 			}
-		}else {
+		} else {
 			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
-		}				
+		}
 	}
 }

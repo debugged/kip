@@ -34,6 +34,7 @@ type deployOptions struct {
 	services    []string
 	environment string
 	repository  string
+	key         string
 }
 
 func newDeployCmd(out io.Writer) *cobra.Command {
@@ -147,7 +148,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 			for _, service := range services {
 				if service.HasDockerfile() {
-					buildID, err := service.GetImageID("latest", o.repository)
+					buildID, err := service.GetImageID(o.key, o.repository)
 
 					if err != nil {
 						fmt.Fprintln(out, err)
@@ -157,8 +158,8 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 					serviceKey := strings.ReplaceAll(service.Name(), "-", "_")
 
-					imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".name=" + o.repository + service.Name()}...)
-					imageArgs = append(imageArgs, []string{"--set", "services." + serviceKey + ".tag=" + buildID}...)
+					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".name=" + o.repository + service.Name()}...)
+					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".tag=" + buildID}...)
 				} else {
 					fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
 				}
@@ -168,8 +169,8 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 			fmt.Fprintf(out, "Deploying charts  : %s\n", strings.Join(chartNames, ","))
 			fmt.Fprintf(out, "Deploying services: %s\n\n", strings.Join(serviceNames, ","))
-			deployCharts(out, chartsToDeploy, extraArgs)
-			deployServices(out, servicesToDeploy, extraArgs)
+			deployCharts(out, chartsToDeploy, o.environment, extraArgs)
+			deployServices(out, servicesToDeploy, o.environment, extraArgs)
 
 			postDeployscripts := kipProject.GetScripts("post-deploy", o.environment)
 
@@ -190,16 +191,17 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 	f.BoolVarP(&o.all, "all", "a", true, "deploy all charts")
 	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
 	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
+	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
 	f.StringArrayVarP(&o.charts, "charts", "c", []string{}, "charts to deploy")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to deploy")
 
 	return cmd
 }
 
-func deployCharts(out io.Writer, charts []project.Chart, args []string) {
+func deployCharts(out io.Writer, charts []project.Chart, environment string, args []string) {
 	for _, chart := range charts {
 		fmt.Fprintf(out, color.BlueString("DEPLOY chart: \"%s\"\n"), chart.Name())
-		buildErr := chart.Deploy(args)
+		buildErr := chart.Deploy(environment, args)
 		if buildErr == nil {
 			fmt.Fprintf(out, color.BlueString("DEPLOY chart: %s %s\n\n"), chart.Name(), color.GreenString("SUCCESS"))
 		} else {
@@ -209,13 +211,13 @@ func deployCharts(out io.Writer, charts []project.Chart, args []string) {
 	}
 }
 
-func deployServices(out io.Writer, services []project.ServiceProject, args []string) {
+func deployServices(out io.Writer, services []project.ServiceProject, environment string, args []string) {
 	for _, service := range services {
 		charts := service.Charts()
 
 		if len(charts) > 0 {
 			fmt.Fprintf(out, color.BlueString("DEPLOY service: \"%s\"\n"), service.Name())
-			deployCharts(out, charts, args)
+			deployCharts(out, charts, environment, args)
 			fmt.Fprintf(out, color.BlueString("DEPLOY service: %s %s\n\n"), service.Name(), color.GreenString("SUCCESS"))
 		} else {
 			fmt.Fprintf(out, color.BlueString("SKIP DEPLOY service: \"%s\" no charts\n"), service.Name())

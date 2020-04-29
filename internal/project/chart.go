@@ -18,11 +18,10 @@ type chart interface {
 }
 
 type Chart struct {
-	name string
-	path string
+	name   string
+	path   string
 	prefix string
 }
-
 
 func (c Chart) Name() string {
 	if c.Prefix() != "" {
@@ -31,7 +30,7 @@ func (c Chart) Name() string {
 	return c.name
 }
 
-func (c Chart) Path() string { 
+func (c Chart) Path() string {
 	return c.path
 }
 
@@ -39,10 +38,32 @@ func (c Chart) Prefix() string {
 	return c.prefix
 }
 
-func (c Chart) Deploy(args []string) error {
+func (c Chart) Deploy(environment string, args []string) error {
 	fmt.Println(c.Path())
 
 	cmdArgs := []string{"upgrade", c.Name(), ".", "--install"}
+
+	if environment != "" {
+		// check if values file is global
+		valuesfilePath := filepath.Join(c.Path(), fmt.Sprintf("../values-%s.yaml", environment))
+		if _, err := os.Stat(valuesfilePath); err == nil {
+			cmdArgs = append(cmdArgs, "-f", valuesfilePath)
+		}
+
+		// check in chart folder
+		valuesfilePath = filepath.Join(c.Path(), fmt.Sprintf("values-%s.yaml", environment))
+		if _, err := os.Stat(valuesfilePath); err == nil {
+			cmdArgs = append(cmdArgs, "-f", valuesfilePath)
+		}
+	}
+
+	kipHelmArgs := strings.TrimSpace(os.Getenv("KIP_HELM_ARGS"))
+
+	if kipHelmArgs != "" {
+		helmArgs := strings.Split(kipHelmArgs, " ")
+		cmdArgs = append(cmdArgs, helmArgs...)
+	}
+
 	cmdArgs = append(cmdArgs, args...)
 
 	fmt.Printf("helm %s\n", strings.Join(cmdArgs, " "))
@@ -54,7 +75,7 @@ func (c Chart) Deploy(args []string) error {
 	err := cmd.Run()
 
 	if err != nil {
-		return err;
+		return err
 	}
 
 	return nil
@@ -64,23 +85,22 @@ func getCharts(path string, prefix string) []Chart {
 	charts := []Chart{}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return charts;
+		return charts
 	}
 
 	files, err := ioutil.ReadDir(path)
-			if err != nil {
-					log.Fatal(err)
-			}
-			
+	if err != nil {
+		log.Fatal(err)
+	}
 
-			for _, f := range files {
-				if f.IsDir() {
-					chartFolder := f.Name()
-					var c Chart
-					c = Chart{name: chartFolder, path: filepath.Join(path, chartFolder), prefix: prefix}
-					charts = append(charts, c)
-				}
-			}
+	for _, f := range files {
+		if f.IsDir() {
+			chartFolder := f.Name()
+			var c Chart
+			c = Chart{name: chartFolder, path: filepath.Join(path, chartFolder), prefix: prefix}
+			charts = append(charts, c)
+		}
+	}
 
 	return charts
 }

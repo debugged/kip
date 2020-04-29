@@ -29,10 +29,11 @@ import (
 )
 
 type pushOptions struct {
-	all bool
-	services []string
+	all         bool
+	services    []string
 	environment string
-	repository string
+	repository  string
+	key         string
 }
 
 func newPushCmd(out io.Writer) *cobra.Command {
@@ -53,7 +54,7 @@ func newPushCmd(out io.Writer) *cobra.Command {
 			}
 
 			extraArgs := cmd.Flags().Args()
-			
+
 			services := kipProject.Services()
 			servicesToPush := []project.ServiceProject{}
 
@@ -62,41 +63,41 @@ func newPushCmd(out io.Writer) *cobra.Command {
 			}
 
 			if o.environment == "" {
-				o.environment =  kipProject.Environment()
+				o.environment = kipProject.Environment()
 			}
 
 			if o.repository == "" {
-				o.repository =  kipProject.Repository()
-			} 
+				o.repository = kipProject.Repository()
+			}
 
 			if o.all && len(o.services) > 0 {
 				fmt.Fprintf(out, "WARN: --all is ignored when --service is used\n")
 				o.all = false
 			}
-			
+
 			if o.all {
 				servicesToPush = append(servicesToPush, services...)
-			}else if len(o.services) > 0 {
+			} else if len(o.services) > 0 {
 
 				for _, serviceName := range o.services {
 					var foundService project.Project = nil
 					for _, service := range services {
 						if service.Name() == serviceName {
 							foundService = service
-							break;
+							break
 						}
 					}
 
 					if foundService != nil {
 						servicesToPush = append(servicesToPush, foundService.(project.ServiceProject))
-					}else {
+					} else {
 						fmt.Fprintf(out, "service \"%s\" does not exist in project\n", serviceName)
 						os.Exit(1)
 					}
-				}				
+				}
 			}
 
-			serviceNames := filter.Apply(servicesToPush, func (s project.ServiceProject) string  {
+			serviceNames := filter.Apply(servicesToPush, func(s project.ServiceProject) string {
 				return s.Name()
 			}).([]string)
 
@@ -115,7 +116,7 @@ func newPushCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			pushServices(out, servicesToPush, o.repository, extraArgs)
+			pushServices(out, servicesToPush, o.repository, o.key, extraArgs)
 
 			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
 
@@ -136,24 +137,25 @@ func newPushCmd(out io.Writer) *cobra.Command {
 	f.BoolVarP(&o.all, "all", "a", false, "build all services (default)")
 	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
 	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
+	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to push")
 
 	return cmd
 }
 
-func pushServices(out io.Writer, services []project.ServiceProject, repository string, args []string) {
+func pushServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string) {
 	for _, service := range services {
 		if service.HasDockerfile() {
 			fmt.Fprintf(out, color.BlueString("PUSH service: \"%s\"\n"), service.Name())
-			pushErr := service.Push(repository, args)
+			pushErr := service.Push(repository, key, args)
 			if pushErr == nil {
 				fmt.Fprintf(out, color.BlueString("PUSH %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
-			}else {
+			} else {
 				fmt.Fprint(out, pushErr)
 				os.Exit(1)
 			}
-		}else {
+		} else {
 			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
-		}				
+		}
 	}
 }

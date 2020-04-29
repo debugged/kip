@@ -30,7 +30,7 @@ type Project interface {
 
 // MonoProject defined a project that contains multiple services
 type MonoProject struct {
-	path string
+	path   string
 	config *viper.Viper
 }
 
@@ -40,12 +40,12 @@ func CreateMonoProject(path string, name string) error {
 }
 
 type paths struct {
-	Root string
-	Services string
-	Deployments string
-	Environments string
-	Scripts string
-	Libraries string
+	Root              string
+	Services          string
+	Deployments       string
+	Environments      string
+	Scripts           string
+	Libraries         string
 	BuildPathTemplate string
 }
 
@@ -53,41 +53,41 @@ func (p MonoProject) Name() string {
 	return filepath.Base(p.path)
 }
 
-func (p MonoProject) Template() string { 
+func (p MonoProject) Template() string {
 	return p.config.GetString("template")
 }
 
-func (p MonoProject) Environment() string { 
+func (p MonoProject) Environment() string {
 	return p.config.GetString("environment")
 }
 
-func (p MonoProject) Repository() string { 
+func (p MonoProject) Repository() string {
 	return p.config.GetString("repository")
 }
 
-func (p MonoProject) Version() string { 
+func (p MonoProject) Version() string {
 	return p.config.GetString("version")
 }
 
 func (p MonoProject) Paths() paths {
-	buildPathTemplate := "<serviceDir>";
+	buildPathTemplate := "<serviceDir>"
 
 	if p.config.IsSet("buildPath") && len(p.config.GetString("buildPath")) > 0 {
-		buildPathTemplate = p.config.GetString("buildPath");
+		buildPathTemplate = p.config.GetString("buildPath")
 	}
 
-	return paths { 
-		Root: p.path, 
-		Services: filepath.Join(p.path, "services"), 
-		Deployments: filepath.Join(p.path, "deployments"),
-		Environments: filepath.Join(p.path, "environments"),
-		Scripts: filepath.Join(p.path, "scripts"),
-		Libraries: filepath.Join(p.path, "libraries"),
+	return paths{
+		Root:              p.path,
+		Services:          filepath.Join(p.path, "services"),
+		Deployments:       filepath.Join(p.path, "deployments"),
+		Environments:      filepath.Join(p.path, "environments"),
+		Scripts:           filepath.Join(p.path, "scripts"),
+		Libraries:         filepath.Join(p.path, "libraries"),
 		BuildPathTemplate: buildPathTemplate,
 	}
 }
 
-func (p MonoProject) Services() []ServiceProject  {
+func (p MonoProject) Services() []ServiceProject {
 	return getServices(p.Paths().Services, &p)
 }
 
@@ -103,7 +103,7 @@ func (p MonoProject) GetService(name string) (*ServiceProject, error) {
 	return nil, fmt.Errorf("service %s not found", name)
 }
 
-func (p MonoProject) Charts() []Chart  {
+func (p MonoProject) Charts() []Chart {
 	return getCharts(p.Paths().Deployments, "")
 }
 
@@ -129,13 +129,13 @@ func (p MonoProject) GetScripts(binding string, environment string) []Script {
 		log.Fatalf("unable to decode into struct, %v", err)
 	}
 
-	scripts = filter.Apply(scripts, func (s Script) Script  {
+	scripts = filter.Apply(scripts, func(s Script) Script {
 		s.Path = p.Paths().Root
 		return s
 	}).([]Script)
 
 	if binding != "" {
-		scripts = filter.Choose(scripts, func (s Script) bool  {
+		scripts = filter.Choose(scripts, func(s Script) bool {
 			for _, value := range s.Bindings {
 				if value == binding {
 					return true
@@ -146,7 +146,7 @@ func (p MonoProject) GetScripts(binding string, environment string) []Script {
 	}
 
 	if environment != "" {
-		scripts = filter.Choose(scripts, func (s Script) bool  {
+		scripts = filter.Choose(scripts, func(s Script) bool {
 
 			if len(s.Environments) == 0 {
 				return true
@@ -160,22 +160,20 @@ func (p MonoProject) GetScripts(binding string, environment string) []Script {
 			return false
 		}).([]Script)
 	}
-	
+
 	return scripts
 }
 
 func (p MonoProject) AddScript(scriptName string, command string, bindings []string) error {
-	config := scriptConfig{ Name: scriptName, Command: command, Bindings: bindings }
+	config := scriptConfig{Name: scriptName, Command: command, Bindings: bindings}
 
 	scriptConfigs := []scriptConfig{}
 
 	for _, script := range p.GetScripts("", "") {
-		scriptConfigs = append(scriptConfigs, scriptConfig{ Name: script.Name, Command: script.Command, Bindings: script.Bindings })
-	} 
-
+		scriptConfigs = append(scriptConfigs, scriptConfig{Name: script.Name, Command: script.Command, Bindings: script.Bindings})
+	}
 
 	scriptConfigs = append(scriptConfigs, config)
-
 
 	p.config.Set("scripts", scriptConfigs)
 
@@ -217,9 +215,9 @@ func (p MonoProject) New(name string) error {
 	return nil
 }
 
-func (p MonoProject) Build(services []string, repository string, args []string) error {
+func (p MonoProject) Build(services []string, repository string, key string, args []string) error {
 	for _, service := range p.Services() {
-		err := service.Build(repository, args)
+		err := service.Build(repository, key, args)
 
 		if err != nil {
 			return err
