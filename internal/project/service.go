@@ -221,8 +221,6 @@ func (s ServiceProject) Build(repository string, key string, args []string) erro
 		return err
 	}
 
-	fmt.Println("key: " + key)
-
 	cmdArgs := []string{"build", s.BuildPath(), "-f", servicePath, "-t", repository + s.Name() + ":temp-" + key}
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command("docker", cmdArgs...)
