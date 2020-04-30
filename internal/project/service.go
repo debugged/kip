@@ -221,7 +221,9 @@ func (s ServiceProject) Build(repository string, key string, args []string) erro
 		return err
 	}
 
-	cmdArgs := []string{"build", s.BuildPath(), "-f", servicePath, "-t", repository + s.Name() + ":temp-" + key}
+	tempId := "temp-" + key
+
+	cmdArgs := []string{"build", s.BuildPath(), "-f", servicePath, "-t", repository + s.Name() + ":" + tempId}
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command("docker", cmdArgs...)
 	cmd.Dir = s.BuildPath()
@@ -234,21 +236,21 @@ func (s ServiceProject) Build(repository string, key string, args []string) erro
 		return err
 	}
 
-	tempID, err := s.GetImageID("temp", repository)
+	tempID, err := s.GetImageID(tempId, repository)
 
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
-	err = s.TagImage("temp", tempID, repository)
+	err = s.TagImage(tempId, tempID, repository)
 
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
-	err = s.TagImage("temp", key, repository)
+	err = s.TagImage(tempId, key, repository)
 
 	if err != nil {
 		fmt.Println(err)
