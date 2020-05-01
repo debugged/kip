@@ -148,7 +148,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 			for _, service := range services {
 				if service.HasDockerfile() {
-					buildID, err := service.GetImageID(o.key, o.repository)
+					buildID, err := service.GetImageID("temp-"+o.key, o.repository)
 
 					if err != nil {
 						fmt.Fprintln(out, err)
