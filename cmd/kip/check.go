@@ -33,15 +33,15 @@ type command struct {
 }
 
 var dependencies = []command{
-	command{
+	{
 		name: "kubectl",
 		info: "https://kubernetes.io",
 	},
-	command{
+	{
 		name: "helm",
 		info: "https://helm.sh",
 	},
-	command{
+	{
 		name: "docker",
 		info: "https://www.docker.com",
 	},
