@@ -31,13 +31,14 @@ var kipProject project.Project
 var hasKipConfig = false
 
 var rootPath, _ = filepath.Abs("/")
+var rootCmd *cobra.Command
 
 func main() {
-	cmd := newRootCmd(color.Output, os.Args[1:])
+	rootCmd = newRootCmd(color.Output, os.Args[1:])
 
 	cobra.OnInitialize(initConfig)
 
-	if err := cmd.Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
@@ -86,7 +87,7 @@ func loadKipProject(path string) (project.Project, error) {
 		}
 
 		rootProject, err := loadKipProject(newPath)
-		
+
 		if err == nil {
 			return rootProject, nil
 		}

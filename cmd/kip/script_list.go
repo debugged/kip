@@ -25,9 +25,16 @@ import (
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
+	"robpike.io/filter"
 )
 
+type listScriptOptions struct {
+	simple bool
+}
+
 func newListScriptCmd(out io.Writer) *cobra.Command {
+	o := &listScriptOptions{}
+
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "lists all scripts",
@@ -43,6 +50,15 @@ func newListScriptCmd(out io.Writer) *cobra.Command {
 				os.Exit(1)
 			}
 
+			if o.simple {
+				scripts := kipProject.GetScripts("", "")
+				scriptNames := filter.Apply(scripts, func(s project.Script) string {
+					return s.Name
+				}).([]string)
+				fmt.Println(strings.Join(scriptNames[:], " "))
+				os.Exit(0)
+			}
+
 			switch kipProject.Template() {
 			case "project":
 				fmt.Printf("Scripts in project %s\n", kipProject.Name())
@@ -53,14 +69,18 @@ func newListScriptCmd(out io.Writer) *cobra.Command {
 					renderScriptsTable(service.GetScripts("", ""))
 				}
 
-				break;
+				break
 			case "service":
 				fmt.Printf("Scripts in service: %s\n", kipProject.Name())
 				renderScriptsTable(kipProject.GetScripts("", ""))
-				break;
+				break
 			}
 		},
 	}
+
+	f := cmd.Flags()
+	f.BoolVarP(&o.simple, "simple", "s", false, "print simple output")
+	f.MarkHidden("simple")
 
 	return cmd
 }

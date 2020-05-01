@@ -21,6 +21,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	bashCompletionFunc = `
+__kip_get_script()
+{
+    local kip_out
+    if kip_out=$(kip script list -s); then
+        COMPREPLY+=( $( compgen -W "${kip_out[*]}" -- "$cur" ) )
+    fi
+}
+
+__kip_custom_func() {
+    case ${last_command} in
+        kip_run)
+            __kip_get_script
+            return
+            ;;
+        *)
+            ;;
+    esac
+}
+`
+)
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func newRootCmd(out io.Writer, args []string) *cobra.Command {
@@ -34,6 +57,7 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
+		BashCompletionFunction: bashCompletionFunc,
 	}
 
 	cmd.AddCommand(
@@ -48,6 +72,7 @@ to quickly create a Cobra application.`,
 		newGeneratorsCmd(out),
 		newCheckCmd(out),
 		newVersionCmd(out),
+		newCompletionCmd(out),
 	)
 
 	return cmd

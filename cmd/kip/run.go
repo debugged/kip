@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"debugged-dev/kip/v1/internal/project"
 	"errors"
 	"fmt"
 	"io"
@@ -24,15 +25,23 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"robpike.io/filter"
 )
 
 type addRunOptions struct {
 	service string
 }
 
-
 func newRunCmd(out io.Writer) *cobra.Command {
 	o := &addRunOptions{}
+
+	var scriptNames []string
+	if kipProject != nil {
+		scripts := kipProject.GetScripts("", "")
+		scriptNames = filter.Apply(scripts, func(s project.Script) string {
+			return s.Name
+		}).([]string)
+	}
 
 	cmd := &cobra.Command{
 		Use:   "run [script-name]",
@@ -70,14 +79,14 @@ func newRunCmd(out io.Writer) *cobra.Command {
 
 			if o.service != "" && kipProject.Template() == "project" {
 				project, err = kipProject.GetService(o.service)
-				
+
 				if err != nil {
 					log.Fatal(err)
 				}
 			}
 
 			script, err := project.GetScript(scriptName)
-			
+
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -88,12 +97,12 @@ func newRunCmd(out io.Writer) *cobra.Command {
 				log.Fatal(err)
 			}
 		},
+		ValidArgs: scriptNames,
 	}
 
 	f := cmd.Flags()
 
 	f.StringVarP(&o.service, "service", "s", "", "service of script")
-
 
 	return cmd
 }
