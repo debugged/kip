@@ -104,7 +104,7 @@ func (p MonoProject) GetService(name string) (*ServiceProject, error) {
 }
 
 func (p MonoProject) Charts() []Chart {
-	return getCharts(p.Paths().Deployments, "")
+	return getCharts(p.Paths().Deployments, "", p)
 }
 
 func (p MonoProject) AddChart(chartName string, args []string) (string, error) {

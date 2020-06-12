@@ -21,6 +21,7 @@ type Chart struct {
 	name   string
 	path   string
 	prefix string
+	Project Project 
 }
 
 func (c Chart) Name() string {
@@ -44,6 +45,21 @@ func (c Chart) Deploy(environment string, args []string) error {
 	cmdArgs := []string{"upgrade", c.Name(), ".", "--install"}
 
 	if environment != "" {
+		// check if values file is global
+		if c.Project != nil {
+			valuesfilePath := filepath.Join(c.Project.Paths().Environments, fmt.Sprintf("values-%s.yaml", environment))
+			if _, err := os.Stat(valuesfilePath); err == nil {
+				cmdArgs = append(cmdArgs, "-f", valuesfilePath)
+			}
+
+			if c.Project != nil && c.Project.Template() == "service" {
+				valuesfilePath := filepath.Join(c.Project.(ServiceProject).project.Paths().Environments, fmt.Sprintf("values-%s.yaml", environment))
+				if _, err := os.Stat(valuesfilePath); err == nil {
+					cmdArgs = append(cmdArgs, "-f", valuesfilePath)
+				}
+			}
+		}
+
 		// check if values file is global
 		valuesfilePath := filepath.Join(c.Path(), fmt.Sprintf("../values-%s.yaml", environment))
 		if _, err := os.Stat(valuesfilePath); err == nil {
@@ -81,7 +97,7 @@ func (c Chart) Deploy(environment string, args []string) error {
 	return nil
 }
 
-func getCharts(path string, prefix string) []Chart {
+func getCharts(path string, prefix string, project Project) []Chart {
 	charts := []Chart{}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -97,7 +113,7 @@ func getCharts(path string, prefix string) []Chart {
 		if f.IsDir() {
 			chartFolder := f.Name()
 			var c Chart
-			c = Chart{name: chartFolder, path: filepath.Join(path, chartFolder), prefix: prefix}
+			c = Chart{name: chartFolder, path: filepath.Join(path, chartFolder), prefix: prefix, Project: project}
 			charts = append(charts, c)
 		}
 	}

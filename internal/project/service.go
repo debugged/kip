@@ -124,7 +124,7 @@ func (p ServiceProject) GetService(name string) (*ServiceProject, error) {
 }
 
 func (s ServiceProject) Charts() []Chart {
-	return getCharts(s.Paths().Deployments, s.Name())
+	return getCharts(s.Paths().Deployments, s.Name(), s)
 }
 
 func (s ServiceProject) AddChart(chartName string, args []string) (string, error) {

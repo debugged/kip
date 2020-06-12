@@ -144,18 +144,24 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 }
 
 func buildServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string) {
+	// wp := workerpool.New(4)
+
 	for _, service := range services {
 		if service.HasDockerfile() {
-			fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
-			buildErr := service.Build(repository, key, args)
-			if buildErr == nil {
-				fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
-			} else {
-				fmt.Fprint(out, buildErr)
-				os.Exit(1)
-			}
+			// wp.Submit(func() {
+				fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
+				buildErr := service.Build(repository, key, args)
+				if buildErr == nil {
+					fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
+				} else {
+					fmt.Fprint(out, buildErr)
+					os.Exit(1)
+				}
+			// })
 		} else {
 			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
 		}
 	}
+
+	// wp.StopWait()
 }
