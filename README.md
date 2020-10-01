@@ -45,7 +45,7 @@ chmod +x ~/.local/bin/kip
 
 ```bash
 mv kip /usr/local/bin/kip
-chmod +x ~/.local/bin/kip
+chmod +x /usr/local/bin/kip
 ```
 
 ### Windows
