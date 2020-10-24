@@ -73,6 +73,7 @@ to quickly create a Cobra application.`,
 		newCheckCmd(out),
 		newVersionCmd(out),
 		newCompletionCmd(out),
+		newHelmArgsCmd(out),
 	)
 
 	return cmd
