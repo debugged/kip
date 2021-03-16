@@ -72,7 +72,8 @@ func (p MonoProject) Version() string {
 func (p MonoProject) Paths() paths {
 	buildPathTemplate := "<serviceDir>"
 
-	if p.config.IsSet("buildPath") && len(p.config.GetString("buildPath")) > 0 {
+	
+	if p.config != nil && p.config.IsSet("buildPath") && len(p.config.GetString("buildPath")) > 0 {
 		buildPathTemplate = p.config.GetString("buildPath")
 	}
 
@@ -183,7 +184,6 @@ func (p MonoProject) AddScript(scriptName string, command string, bindings []str
 }
 
 func (p MonoProject) New(name string) error {
-
 	paths := p.Paths()
 
 	if _, err := os.Stat(paths.Root); !os.IsNotExist(err) {
