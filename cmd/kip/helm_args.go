@@ -82,7 +82,7 @@ func newHelmArgsCmd(out io.Writer) *cobra.Command {
 
 					serviceKey := strings.ReplaceAll(service.Name(), "-", "_")
 
-					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".name=" + o.repository + service.Name()}...)
+					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".name=" + service.Name()}...)
 					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".tag=" + buildID}...)
 				}
 			}

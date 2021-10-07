@@ -79,20 +79,6 @@ func loadKipProject(path string) (project.Project, error) {
 		return loadKipProject(newPath)
 	}
 
-	if projectConfig.GetString("template") == "service" {
-		newPath, err := filepath.Abs(filepath.Join(path, ".."))
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		rootProject, err := loadKipProject(newPath)
-
-		if err == nil {
-			return rootProject, nil
-		}
-	}
-
 	kipProject, err = project.GetProject(path, projectConfig)
 
 	return kipProject, err

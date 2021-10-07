@@ -18,10 +18,10 @@ type chart interface {
 }
 
 type Chart struct {
-	name   string
-	path   string
-	prefix string
-	Project Project 
+	name    string
+	path    string
+	prefix  string
+	Project Project
 }
 
 func (c Chart) Name() string {
@@ -53,7 +53,7 @@ func (c Chart) Deploy(environment string, args []string) error {
 			}
 
 			if c.Project != nil && c.Project.Template() == "service" {
-				valuesfilePath := filepath.Join(c.Project.(ServiceProject).project.Paths().Environments, fmt.Sprintf("values-%s.yaml", environment))
+				valuesfilePath := filepath.Join(c.Project.(ServiceProject).Paths().Environments, fmt.Sprintf("values-%s.yaml", environment))
 				if _, err := os.Stat(valuesfilePath); err == nil {
 					cmdArgs = append(cmdArgs, "-f", valuesfilePath)
 				}

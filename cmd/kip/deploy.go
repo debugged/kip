@@ -164,7 +164,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 					serviceKey := strings.ReplaceAll(service.Name(), "-", "_")
 
-					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".name=" + o.repository + service.Name()}...)
+					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".name=" + service.Name()}...)
 					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".tag=" + buildID}...)
 				} else {
 					fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
@@ -174,9 +174,13 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			extraArgs = append(extraArgs, imageArgs...)
 
 			fmt.Fprintf(out, "Deploying charts  : %s\n", strings.Join(chartNames, ","))
-			fmt.Fprintf(out, "Deploying services: %s\n\n", strings.Join(serviceNames, ","))
+			if kipProject.Template() == "project" {
+				fmt.Fprintf(out, "Deploying services: %s\n\n", strings.Join(serviceNames, ","))
+			}
 			deployCharts(out, chartsToDeploy, o.environment, extraArgs)
-			deployServices(out, servicesToDeploy, o.environment, extraArgs)
+			if kipProject.Template() == "project" {
+				deployServices(out, servicesToDeploy, o.environment, extraArgs)
+			}
 
 			postDeployscripts := kipProject.GetScripts("post-deploy", o.environment)
 
