@@ -150,7 +150,7 @@ func (s ServiceProject) GetScripts(binding string, environment string) []Script 
 	}
 
 	scripts = filter.Apply(scripts, func(script Script) Script {
-		script.Path = filepath.Join(s.Paths().Scripts, script.Name)
+		script.Path = s.Paths().Root
 		return script
 	}).([]Script)
 
@@ -348,8 +348,7 @@ func getServices(path string, project *MonoProject) []ServiceProject {
 				log.Fatal(err)
 			}
 
-			var s ServiceProject
-			s = ServiceProject{path: servicePath, project: project, config: serviceConfig}
+			s := ServiceProject{path: servicePath, project: project, config: serviceConfig}
 			services = append(services, s)
 		}
 	}
