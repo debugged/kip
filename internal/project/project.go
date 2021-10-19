@@ -17,7 +17,7 @@ type Project interface {
 	Version() string
 	Template() string
 	Environment() string
-	Repository() string
+	Repository(enviroment string) string
 	Paths() paths
 	Charts() []Chart
 	AddChart(chartName string, args []string) (string, error)
@@ -49,6 +49,10 @@ type paths struct {
 	BuildPathTemplate string
 }
 
+type EnvConfig struct {
+	Repository string `mapstructure:"repository"`
+}
+
 func (p MonoProject) Name() string {
 	return filepath.Base(p.path)
 }
@@ -61,7 +65,17 @@ func (p MonoProject) Environment() string {
 	return p.config.GetString("environment")
 }
 
-func (p MonoProject) Repository() string {
+func (p MonoProject) EnvConfig() map[string]*EnvConfig {
+	envConfigs := make(map[string]*EnvConfig)
+	p.config.UnmarshalKey("environments", &envConfigs)
+	return envConfigs
+}
+
+func (p MonoProject) Repository(environment string) string {
+	configs := p.EnvConfig()
+	if val, ok := configs[environment]; ok {
+		return val.Repository
+	}
 	return p.config.GetString("repository")
 }
 
@@ -72,7 +86,6 @@ func (p MonoProject) Version() string {
 func (p MonoProject) Paths() paths {
 	buildPathTemplate := "<serviceDir>"
 
-	
 	if p.config != nil && p.config.IsSet("buildPath") && len(p.config.GetString("buildPath")) > 0 {
 		buildPathTemplate = p.config.GetString("buildPath")
 	}
@@ -215,9 +228,9 @@ func (p MonoProject) New(name string) error {
 	return nil
 }
 
-func (p MonoProject) Build(services []string, repository string, key string, args []string) error {
+func (p MonoProject) Build(services []string, repository string, key string, args []string, environment string, debug bool) error {
 	for _, service := range p.Services() {
-		err := service.Build(repository, key, args)
+		err := service.Build(repository, key, args, environment, debug)
 
 		if err != nil {
 			return err

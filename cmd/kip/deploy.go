@@ -32,6 +32,7 @@ type deployOptions struct {
 	all         bool
 	charts      []string
 	services    []string
+	force       bool
 	environment string
 	repository  string
 	key         string
@@ -76,7 +77,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			}
 
 			if o.repository == "" {
-				o.repository = kipProject.Repository()
+				o.repository = kipProject.Repository(o.environment)
 			}
 
 			if o.all {
@@ -167,7 +168,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".name=" + service.Name()}...)
 					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".tag=" + buildID}...)
 				} else {
-					fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
+					fmt.Fprintf(out, color.BlueString("SKIP service: %s no Dockerfile\n"), service.Name())
 				}
 			}
 
@@ -177,9 +178,9 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			if kipProject.Template() == "project" {
 				fmt.Fprintf(out, "Deploying services: %s\n\n", strings.Join(serviceNames, ","))
 			}
-			deployCharts(out, chartsToDeploy, o.environment, extraArgs)
+			deployCharts(out, chartsToDeploy, o.environment, extraArgs, o.force)
 			if kipProject.Template() == "project" {
-				deployServices(out, servicesToDeploy, o.environment, extraArgs)
+				deployServices(out, servicesToDeploy, o.environment, extraArgs, o.force)
 			}
 
 			postDeployscripts := kipProject.GetScripts("post-deploy", o.environment)
@@ -190,7 +191,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 					err := script.Run([]string{})
 					if err != nil {
-						log.Fatalf("error running script \"%s\": %v", script.Name, err)
+						log.Fatalf("error running script %s: %v", script.Name, err)
 					}
 				}
 			}
@@ -204,30 +205,42 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
 	f.StringArrayVarP(&o.charts, "charts", "c", []string{}, "charts to deploy")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to deploy")
+	f.BoolVarP(&o.force, "force", "f", false, "force deploy")
 
 	return cmd
 }
 
-func deployCharts(out io.Writer, charts []project.Chart, environment string, args []string) {
+func deployCharts(out io.Writer, charts []project.Chart, environment string, args []string, force bool) {
 	for _, chart := range charts {
-		fmt.Fprintf(out, color.BlueString("DEPLOY chart: \"%s\"\n"), chart.Name())
-		buildErr := chart.Deploy(environment, args)
-		if buildErr == nil {
-			fmt.Fprintf(out, color.BlueString("DEPLOY chart: %s %s\n\n"), chart.Name(), color.GreenString("SUCCESS"))
-		} else {
-			fmt.Fprint(out, buildErr)
+		isChanged, err := chart.IsChanged(environment, args)
+		if err != nil {
+			fmt.Fprint(out, err)
 			os.Exit(1)
+		}
+
+		fmt.Fprintf(out, color.BlueString("DEPLOY chart: %s: %s \n"), chart.Name(), color.YellowString(environment))
+
+		if !isChanged && !force {
+			fmt.Fprintf(out, color.BlueString("DEPLOY chart: %s %s\n\n"), chart.Name(), color.YellowString("no changes"))
+		} else {
+			buildErr := chart.Deploy(environment, args)
+			if buildErr == nil {
+				fmt.Fprintf(out, color.BlueString("DEPLOY chart: %s %s\n\n"), chart.Name(), color.GreenString("SUCCESS"))
+			} else {
+				fmt.Fprint(out, buildErr)
+				os.Exit(1)
+			}
 		}
 	}
 }
 
-func deployServices(out io.Writer, services []project.ServiceProject, environment string, args []string) {
+func deployServices(out io.Writer, services []project.ServiceProject, environment string, args []string, force bool) {
 	for _, service := range services {
 		charts := service.Charts()
 
 		if len(charts) > 0 {
-			fmt.Fprintf(out, color.BlueString("DEPLOY service: \"%s\"\n"), service.Name())
-			deployCharts(out, charts, environment, args)
+			fmt.Fprintf(out, color.BlueString("DEPLOY service: %s\n"), service.Name())
+			deployCharts(out, charts, environment, args, force)
 			fmt.Fprintf(out, color.BlueString("DEPLOY service: %s %s\n\n"), service.Name(), color.GreenString("SUCCESS"))
 		} else {
 			fmt.Fprintf(out, color.BlueString("SKIP DEPLOY service: \"%s\" no charts\n"), service.Name())

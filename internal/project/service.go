@@ -40,10 +40,21 @@ func (s ServiceProject) Environment() string {
 	return s.config.GetString("environment")
 }
 
-func (s ServiceProject) Repository() string {
+func (s ServiceProject) EnvConfig() map[string]*EnvConfig {
+	envConfigs := make(map[string]*EnvConfig)
+	s.config.UnmarshalKey("environments", &envConfigs)
+	return envConfigs
+}
+
+func (s ServiceProject) Repository(environment string) string {
 
 	if s.project != nil && !s.config.IsSet("repository") {
-		return s.project.Repository()
+		return s.project.Repository(environment)
+	}
+
+	configs := s.EnvConfig()
+	if val, ok := configs[environment]; ok {
+		return val.Repository
 	}
 
 	return s.config.GetString("repository")
@@ -207,13 +218,13 @@ func (s ServiceProject) HasDockerfile() bool {
 	return !os.IsNotExist(err)
 }
 
-func (s ServiceProject) Build(repository string, key string, args []string) error {
+func (s ServiceProject) Build(repository string, key string, args []string, environment string, debug bool) error {
 	dockerfilePath := filepath.Join(s.Paths().Root, "Dockerfile")
 
 	servicePath, err := filepath.Rel(s.BuildPath(), dockerfilePath)
 
 	if repository == "" {
-		repository = s.Repository()
+		repository = s.Repository(environment)
 	}
 
 	if err != nil {
@@ -227,8 +238,16 @@ func (s ServiceProject) Build(repository string, key string, args []string) erro
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command("docker", cmdArgs...)
 	cmd.Dir = s.BuildPath()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if debug {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+	} else {
+		var execOut bytes.Buffer
+		var execErr bytes.Buffer
+		cmd.Stdout = &execOut
+		cmd.Stderr = &execErr
+	}
 	err = cmd.Run()
 
 	if err != nil {
@@ -243,14 +262,14 @@ func (s ServiceProject) Build(repository string, key string, args []string) erro
 		return err
 	}
 
-	err = s.TagImage(tempId, tempID, repository)
+	err = s.TagImage(tempId, tempID, repository, debug)
 
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
-	err = s.TagImage(tempId, key, repository)
+	err = s.TagImage(tempId, key, repository, debug)
 
 	if err != nil {
 		fmt.Println(err)
@@ -260,10 +279,10 @@ func (s ServiceProject) Build(repository string, key string, args []string) erro
 	return nil
 }
 
-func (s ServiceProject) Push(repository string, key string, args []string) error {
+func (s ServiceProject) Push(repository string, key string, args []string, environment string, debug bool) error {
 
 	if repository == "" {
-		repository = s.Repository()
+		repository = s.Repository(environment)
 	}
 
 	imageID, err := s.GetImageID(key, repository)
@@ -277,8 +296,16 @@ func (s ServiceProject) Push(repository string, key string, args []string) error
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command("docker", cmdArgs...)
 	cmd.Dir = s.Paths().Root
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if debug {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+	} else {
+		var execOut bytes.Buffer
+		var execErr bytes.Buffer
+		cmd.Stdout = &execOut
+		cmd.Stderr = &execErr
+	}
 	err = cmd.Run()
 
 	if err != nil {
@@ -305,19 +332,29 @@ func (s ServiceProject) GetImageID(tag string, repository string) (string, error
 	return imageID[7:19], nil
 }
 
-func (s ServiceProject) TagImage(currentTag string, newTag string, repository string) error {
+func (s ServiceProject) TagImage(currentTag string, newTag string, repository string, debug bool) error {
 
 	cmd := exec.Command("docker", "tag", repository+s.Name()+":"+currentTag, repository+s.Name()+":"+newTag)
 	cmd.Dir = s.Paths().Root
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if debug {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+	} else {
+		var execOut bytes.Buffer
+		var execErr bytes.Buffer
+		cmd.Stdout = &execOut
+		cmd.Stderr = &execErr
+	}
 	err := cmd.Run()
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Successfully tagged %s:%s\n", s.Name(), newTag)
+	if debug {
+		fmt.Printf("Successfully tagged %s:%s\n", s.Name(), newTag)
+	}
 
 	return nil
 }

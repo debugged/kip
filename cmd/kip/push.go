@@ -21,9 +21,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/gammazero/workerpool"
 	"github.com/spf13/cobra"
 	"robpike.io/filter"
 )
@@ -34,6 +36,7 @@ type pushOptions struct {
 	environment string
 	repository  string
 	key         string
+	debug       bool
 }
 
 func newPushCmd(out io.Writer) *cobra.Command {
@@ -67,7 +70,7 @@ func newPushCmd(out io.Writer) *cobra.Command {
 			}
 
 			if o.repository == "" {
-				o.repository = kipProject.Repository()
+				o.repository = kipProject.Repository(o.environment)
 			}
 
 			if o.all && len(o.services) > 0 {
@@ -116,7 +119,7 @@ func newPushCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			pushServices(out, servicesToPush, o.repository, o.key, extraArgs)
+			pushServices(out, servicesToPush, o.repository, o.key, extraArgs, o.environment, o.debug)
 
 			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
 
@@ -139,23 +142,31 @@ func newPushCmd(out io.Writer) *cobra.Command {
 	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
 	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to push")
+	f.BoolVarP(&o.debug, "debug", "d", false, "debug output")
 
 	return cmd
 }
 
-func pushServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string) {
+func pushServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, debug bool) {
+	wp := workerpool.New(runtime.NumCPU())
+
 	for _, service := range services {
+		service := service
 		if service.HasDockerfile() {
-			fmt.Fprintf(out, color.BlueString("PUSH service: \"%s\"\n"), service.Name())
-			pushErr := service.Push(repository, key, args)
-			if pushErr == nil {
-				fmt.Fprintf(out, color.BlueString("PUSH %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
-			} else {
-				fmt.Fprint(out, pushErr)
-				os.Exit(1)
-			}
+			wp.Submit(func() {
+				fmt.Fprintf(out, color.BlueString("PUSH service: \"%s\"\n"), service.Name())
+				pushErr := service.Push(repository, key, args, environment, debug)
+				if pushErr == nil {
+					fmt.Fprintf(out, color.BlueString("PUSH %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
+				} else {
+					fmt.Fprint(out, pushErr)
+					os.Exit(1)
+				}
+			})
 		} else {
 			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
 		}
 	}
+
+	wp.StopWait()
 }

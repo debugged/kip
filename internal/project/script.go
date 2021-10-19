@@ -10,10 +10,6 @@ import (
 	"strings"
 )
 
-type script interface {
-	Run(args []string) error
-}
-
 type scriptConfig struct {
 	Name         string
 	Command      string

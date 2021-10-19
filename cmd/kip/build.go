@@ -21,9 +21,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/gammazero/workerpool"
 	"github.com/spf13/cobra"
 	"robpike.io/filter"
 )
@@ -34,6 +36,7 @@ type buildOptions struct {
 	environment string
 	repository  string
 	key         string
+	debug       bool
 }
 
 func newBuildCmd(out io.Writer) *cobra.Command {
@@ -67,7 +70,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 			}
 
 			if o.repository == "" {
-				o.repository = kipProject.Repository()
+				o.repository = kipProject.Repository(o.environment)
 			}
 
 			if o.all && len(o.services) > 0 {
@@ -116,7 +119,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			buildServices(out, servicesToBuild, o.repository, o.key, extraArgs)
+			buildServices(out, servicesToBuild, o.repository, o.key, extraArgs, o.environment, o.debug)
 
 			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
 
@@ -139,29 +142,33 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
 	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to build")
+	f.BoolVarP(&o.debug, "debug", "d", false, "debug output")
 
 	return cmd
 }
 
-func buildServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string) {
-	// wp := workerpool.New(4)
+func buildServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, debug bool) {
+	wp := workerpool.New(runtime.NumCPU())
+
+	os.Setenv("DOCKER_BUILDKIT", "1")
 
 	for _, service := range services {
+		service := service
 		if service.HasDockerfile() {
-			// wp.Submit(func() {
+			wp.Submit(func() {
 				fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
-				buildErr := service.Build(repository, key, args)
+				buildErr := service.Build(repository, key, args, environment, debug)
 				if buildErr == nil {
 					fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
 				} else {
 					fmt.Fprint(out, buildErr)
 					os.Exit(1)
 				}
-			// })
+			})
 		} else {
 			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
 		}
 	}
 
-	// wp.StopWait()
+	wp.StopWait()
 }

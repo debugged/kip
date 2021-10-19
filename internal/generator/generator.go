@@ -71,7 +71,7 @@ func Generate(generatorName string, path string, name string, args []string) err
 		return buildErr
 	}
 
-	return nil;
+	return nil
 }
 
 func empty(path string, name string) error {
@@ -331,7 +331,7 @@ func createDockerfile(servicePath string, dockerfile string) error {
 
 	_, err = f.WriteString(dockerfile)
 	if err != nil {
-			return err
+		return err
 	}
 	err = f.Close()
 
@@ -350,7 +350,7 @@ func createDockerIgnore(servicePath string, dockerIgnore string) error {
 
 	_, err = f.WriteString(dockerIgnore)
 	if err != nil {
-			return err
+		return err
 	}
 	err = f.Close()
 
@@ -395,7 +395,7 @@ func createNginConfig(servicePath string) error {
 
 	_, err = f.WriteString(nginxConfig)
 	if err != nil {
-			return err
+		return err
 	}
 	err = f.Close()
 
