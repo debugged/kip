@@ -228,17 +228,6 @@ func (p MonoProject) New(name string) error {
 	return nil
 }
 
-func (p MonoProject) Build(services []string, repository string, key string, args []string, environment string, debug bool) error {
-	for _, service := range p.Services() {
-		err := service.Build(repository, key, args, environment, debug)
-
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // GetProject creates the project class and makes it globally Available
 func GetProject(projectPath string, config *viper.Viper) (Project, error) {
 	switch config.GetString("template") {

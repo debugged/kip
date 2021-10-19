@@ -157,12 +157,13 @@ func buildServices(out io.Writer, services []project.ServiceProject, repository 
 		if service.HasDockerfile() {
 			wp.Submit(func() {
 				fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
-				buildErr := service.Build(repository, key, args, environment, debug)
+				output, buildErr := service.Build(repository, key, args, environment, debug)
 				if buildErr == nil {
 					fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
 				} else {
-					fmt.Fprint(out, buildErr)
-					os.Exit(1)
+					fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.RedString("FAILED"))
+					fmt.Fprint(out, string(output))
+					wp.Stop()
 				}
 			})
 		} else {

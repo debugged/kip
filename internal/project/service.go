@@ -218,7 +218,7 @@ func (s ServiceProject) HasDockerfile() bool {
 	return !os.IsNotExist(err)
 }
 
-func (s ServiceProject) Build(repository string, key string, args []string, environment string, debug bool) error {
+func (s ServiceProject) Build(repository string, key string, args []string, environment string, debug bool) ([]byte, error) {
 	dockerfilePath := filepath.Join(s.Paths().Root, "Dockerfile")
 
 	servicePath, err := filepath.Rel(s.BuildPath(), dockerfilePath)
@@ -229,7 +229,7 @@ func (s ServiceProject) Build(repository string, key string, args []string, envi
 
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return nil, err
 	}
 
 	tempId := "temp-" + key
@@ -238,45 +238,36 @@ func (s ServiceProject) Build(repository string, key string, args []string, envi
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command("docker", cmdArgs...)
 	cmd.Dir = s.BuildPath()
-	if debug {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
 
-	} else {
-		var execOut bytes.Buffer
-		var execErr bytes.Buffer
-		cmd.Stdout = &execOut
-		cmd.Stderr = &execErr
-	}
-	err = cmd.Run()
+	output, err := cmd.Output()
 
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return output, err
 	}
 
 	tempID, err := s.GetImageID(tempId, repository)
 
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return output, err
 	}
 
 	err = s.TagImage(tempId, tempID, repository, debug)
 
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return output, err
 	}
 
 	err = s.TagImage(tempId, key, repository, debug)
 
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return output, err
 	}
 
-	return nil
+	return output, err
 }
 
 func (s ServiceProject) Push(repository string, key string, args []string, environment string, debug bool) error {
