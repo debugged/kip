@@ -20,9 +20,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -41,6 +39,7 @@ type buildOptions struct {
 	repository  string
 	key         string
 	debug       bool
+	parallel    int
 }
 
 func newBuildCmd(out io.Writer) *cobra.Command {
@@ -130,7 +129,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			buildServices(out, servicesToBuild, o.repository, o.key, extraArgs, o.environment, o.debug)
+			buildServices(out, servicesToBuild, o.repository, o.key, extraArgs, o.environment, o.parallel, o.debug)
 
 			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
 
@@ -154,6 +153,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to build")
 	f.BoolVarP(&o.debug, "debug", "d", false, "debug output")
+	f.IntVarP(&o.parallel, "parallel", "p", 4, "number of builds to run parallel")
 
 	return cmd
 }
@@ -167,14 +167,8 @@ func removeStringFromArray(s []string, r string) []string {
 	return s
 }
 
-func buildServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, debug bool) {
-	cpuUsage := int(math.Ceil(float64(runtime.NumCPU()) * float64(0.5)))
-
-	if debug {
-		fmt.Fprintf(out, color.YellowString("USING parallel: %v/%v\n"), cpuUsage, runtime.NumCPU())
-	}
-
-	wp := workerpool.New(cpuUsage)
+func buildServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, parallel int, debug bool) {
+	wp := workerpool.New(parallel)
 
 	os.Setenv("DOCKER_BUILDKIT", "1")
 

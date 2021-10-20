@@ -39,6 +39,7 @@ type pushOptions struct {
 	repository  string
 	key         string
 	debug       bool
+	parallel    int
 }
 
 func newPushCmd(out io.Writer) *cobra.Command {
@@ -121,7 +122,7 @@ func newPushCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
-			pushServices(out, servicesToPush, o.repository, o.key, extraArgs, o.environment, o.debug)
+			pushServices(out, servicesToPush, o.repository, o.key, extraArgs, o.environment, o.parallel, o.debug)
 
 			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
 
@@ -145,12 +146,13 @@ func newPushCmd(out io.Writer) *cobra.Command {
 	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to push")
 	f.BoolVarP(&o.debug, "debug", "d", false, "debug output")
+	f.IntVarP(&o.parallel, "parallel", "p", 4, "number of images to push parallel")
 
 	return cmd
 }
 
-func pushServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, debug bool) {
-	wp := workerpool.New(4)
+func pushServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, parallel int, debug bool) {
+	wp := workerpool.New(parallel)
 
 	bar := progressbar.NewOptions(-1,
 		progressbar.OptionSetWriter(out),
