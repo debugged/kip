@@ -21,6 +21,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -159,55 +160,55 @@ func pushServices(out io.Writer, services []project.ServiceProject, repository s
 	)
 
 	finished := 0
-	pushing := 0
+	pushing := []string{}
 	total := 0
 	start := time.Now()
+
+	go func() {
+		for {
+			bar.RenderBlank()
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
+
 	for _, service := range services {
 		service := service
 		if service.HasDockerfile() {
 			total++
 			wp.Submit(func() {
-				pushing++
 				serviceStart := time.Now()
-				fmt.Fprintf(out, color.BlueString("PUSH service: \"%s\"\n"), service.Name())
+				pushing = append(pushing, service.Name())
+				sort.Strings(pushing)
+				bar.Describe(fmt.Sprintf("%v/%v Pusing (%v)", finished, total, strings.Join(pushing, ", ")))
 
 				defer func() {
 					finished++
-					pushing--
-					bar.Describe(fmt.Sprintf("%v/%v Pusing (%v)...", finished, total, pushing))
-					if finished != len(services) {
-						bar.RenderBlank()
-					}
-				}()
-
-				go func() {
-					for {
-						bar.Describe(fmt.Sprintf("%v/%v Pusing (%v)...", finished, total, pushing))
-						if finished != len(services) {
-							bar.RenderBlank()
-						}
-						time.Sleep(time.Millisecond)
-					}
+					pushing = removeStringFromArray(pushing, service.Name())
+					bar.Describe(fmt.Sprintf("%v/%v Pusing (%v)", finished, total, strings.Join(pushing, ", ")))
 				}()
 
 				output, pushErr := service.Push(repository, key, args, environment)
-
 				d := time.Since(serviceStart)
 				d = d.Round(time.Millisecond)
 
 				if pushErr == nil {
 					bar.Clear()
-					fmt.Fprintf(out, color.BlueString("PUSH %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
+					fmt.Fprintf(out, color.BlueString("PUSH %s %s %s\n"), service.Name(), color.GreenString("SUCCESS"), color.YellowString("%s", d))
 					if debug {
-						out.Write(output)
+						bar.Clear()
+						fmt.Fprintf(out, "%v\n", string(output))
 					}
 				} else {
 					bar.Clear()
 					fmt.Fprintf(out, color.BlueString("PUSH %s %s %s\n"), service.Name(), color.RedString("FAILED"), color.YellowString("%s", d))
-					out.Write(output)
+					if debug {
+						bar.Clear()
+						fmt.Fprintf(out, "%v\n", string(output))
+					}
 				}
 			})
 		} else {
+			bar.Clear()
 			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
 		}
 	}
@@ -216,5 +217,6 @@ func pushServices(out io.Writer, services []project.ServiceProject, repository s
 	d := time.Since(start)
 	d = d.Round(time.Millisecond)
 	bar.Finish()
+
 	fmt.Fprintf(out, color.GreenString("PUSH %s\n"), color.YellowString("%s", d))
 }

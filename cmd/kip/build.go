@@ -23,6 +23,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -40,7 +41,6 @@ type buildOptions struct {
 	repository  string
 	key         string
 	debug       bool
-	parallel    int
 }
 
 func newBuildCmd(out io.Writer) *cobra.Command {
@@ -158,6 +158,15 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 	return cmd
 }
 
+func removeStringFromArray(s []string, r string) []string {
+	for i, v := range s {
+		if v == r {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
 func buildServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, debug bool) {
 	cpuUsage := int(math.Ceil(float64(runtime.NumCPU()) * float64(0.5)))
 
@@ -177,39 +186,35 @@ func buildServices(out io.Writer, services []project.ServiceProject, repository 
 	)
 
 	finished := 0
-	building := 0
+	building := []string{}
 	total := 0
 	start := time.Now()
+
+	go func() {
+		for {
+			bar.RenderBlank()
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
+
 	for _, service := range services {
 		service := service
 		if service.HasDockerfile() {
 			total++
 			wp.Submit(func() {
-				building++
 				serviceStart := time.Now()
-				fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
+				building = append(building, service.Name())
+				sort.Strings(building)
+
+				bar.Describe(fmt.Sprintf("%v/%v Building (%v)", finished, total, strings.Join(building, ", ")))
 
 				defer func() {
 					finished++
-					building--
-					bar.Describe(fmt.Sprintf("%v/%v Building (%v)...", finished, total, building))
-					if finished != len(services) {
-						bar.RenderBlank()
-					}
-				}()
-
-				go func() {
-					for {
-						bar.Describe(fmt.Sprintf("%v/%v Building (%v)...", finished, total, building))
-						if finished != len(services) {
-							bar.RenderBlank()
-						}
-						time.Sleep(time.Millisecond)
-					}
+					building = removeStringFromArray(building, service.Name())
+					bar.Describe(fmt.Sprintf("%v/%v Building (%v)", finished, total, strings.Join(building, ", ")))
 				}()
 
 				output, buildErr := service.Build(repository, key, args, environment)
-
 				d := time.Since(serviceStart)
 				d = d.Round(time.Millisecond)
 
@@ -217,15 +222,20 @@ func buildServices(out io.Writer, services []project.ServiceProject, repository 
 					bar.Clear()
 					fmt.Fprintf(out, color.BlueString("BUILD %s %s %s\n"), service.Name(), color.GreenString("SUCCESS"), color.YellowString("%s", d))
 					if debug {
-						out.Write(output)
+						bar.Clear()
+						fmt.Fprintf(out, "%v\n", string(output))
 					}
 				} else {
 					bar.Clear()
 					fmt.Fprintf(out, color.BlueString("BUILD %s %s %s\n"), service.Name(), color.RedString("FAILED"), color.YellowString("%s", d))
-					out.Write(output)
+					if debug {
+						bar.Clear()
+						fmt.Fprintf(out, "%v\n", string(output))
+					}
 				}
 			})
 		} else {
+			bar.Clear()
 			fmt.Fprintf(out, color.BlueString("SKIP service: \"%s\" no Dockerfile\n"), service.Name())
 		}
 	}
@@ -234,5 +244,6 @@ func buildServices(out io.Writer, services []project.ServiceProject, repository 
 	d := time.Since(start)
 	d = d.Round(time.Millisecond)
 	bar.Finish()
+
 	fmt.Fprintf(out, color.GreenString("BUILD %s\n"), color.YellowString("%s", d))
 }
