@@ -20,12 +20,15 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/gammazero/workerpool"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"robpike.io/filter"
 )
@@ -37,6 +40,7 @@ type buildOptions struct {
 	repository  string
 	key         string
 	debug       bool
+	parallel    int
 }
 
 func newBuildCmd(out io.Writer) *cobra.Command {
@@ -78,6 +82,9 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				o.all = false
 			}
 
+			// add default docker build args
+			extraArgs = append(kipProject.DockerBuildArgs(o.environment), extraArgs...)
+
 			if o.all {
 				servicesToBuild = append(servicesToBuild, services...)
 			} else if len(o.services) > 0 {
@@ -104,7 +111,11 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				return s.Name()
 			}).([]string)
 
-			fmt.Fprintf(out, "Building services: %s\n\n", strings.Join(serviceNames, ","))
+			fmt.Fprintf(out, "Building services: %s\n", strings.Join(serviceNames, ","))
+
+			if o.debug {
+				fmt.Fprintf(out, "Using args: %s\n\n", strings.Join(extraArgs, ", "))
+			}
 
 			preBuildscripts := kipProject.GetScripts("pre-build", o.environment)
 
@@ -148,22 +159,70 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 }
 
 func buildServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, debug bool) {
-	wp := workerpool.New(runtime.NumCPU())
+	cpuUsage := int(math.Ceil(float64(runtime.NumCPU()) * float64(0.5)))
+
+	if debug {
+		fmt.Fprintf(out, color.YellowString("USING parallel: %v/%v\n"), cpuUsage, runtime.NumCPU())
+	}
+
+	wp := workerpool.New(cpuUsage)
 
 	os.Setenv("DOCKER_BUILDKIT", "1")
 
+	bar := progressbar.NewOptions(-1,
+		progressbar.OptionSetWriter(out),
+		progressbar.OptionSpinnerType(14),
+		progressbar.OptionClearOnFinish(),
+		progressbar.OptionUseANSICodes(true),
+	)
+
+	finished := 0
+	building := 0
+	total := 0
+	start := time.Now()
 	for _, service := range services {
 		service := service
 		if service.HasDockerfile() {
+			total++
 			wp.Submit(func() {
+				building++
+				serviceStart := time.Now()
 				fmt.Fprintf(out, color.BlueString("BUILD service: \"%s\"\n"), service.Name())
-				output, buildErr := service.Build(repository, key, args, environment, debug)
+
+				defer func() {
+					finished++
+					building--
+					bar.Describe(fmt.Sprintf("%v/%v Building (%v)...", finished, total, building))
+					if finished != len(services) {
+						bar.RenderBlank()
+					}
+				}()
+
+				go func() {
+					for {
+						bar.Describe(fmt.Sprintf("%v/%v Building (%v)...", finished, total, building))
+						if finished != len(services) {
+							bar.RenderBlank()
+						}
+						time.Sleep(time.Millisecond)
+					}
+				}()
+
+				output, buildErr := service.Build(repository, key, args, environment)
+
+				d := time.Since(serviceStart)
+				d = d.Round(time.Millisecond)
+
 				if buildErr == nil {
-					fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
+					bar.Clear()
+					fmt.Fprintf(out, color.BlueString("BUILD %s %s %s\n"), service.Name(), color.GreenString("SUCCESS"), color.YellowString("%s", d))
+					if debug {
+						out.Write(output)
+					}
 				} else {
-					fmt.Fprintf(out, color.BlueString("BUILD %s %s\n"), service.Name(), color.RedString("FAILED"))
-					fmt.Fprint(out, string(output))
-					wp.Stop()
+					bar.Clear()
+					fmt.Fprintf(out, color.BlueString("BUILD %s %s %s\n"), service.Name(), color.RedString("FAILED"), color.YellowString("%s", d))
+					out.Write(output)
 				}
 			})
 		} else {
@@ -172,4 +231,8 @@ func buildServices(out io.Writer, services []project.ServiceProject, repository 
 	}
 
 	wp.StopWait()
+	d := time.Since(start)
+	d = d.Round(time.Millisecond)
+	bar.Finish()
+	fmt.Fprintf(out, color.GreenString("BUILD %s\n"), color.YellowString("%s", d))
 }

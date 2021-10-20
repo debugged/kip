@@ -18,6 +18,7 @@ type Project interface {
 	Template() string
 	Environment() string
 	Repository(enviroment string) string
+	DockerBuildArgs(enviroment string) []string
 	Paths() paths
 	Charts() []Chart
 	AddChart(chartName string, args []string) (string, error)
@@ -50,7 +51,8 @@ type paths struct {
 }
 
 type EnvConfig struct {
-	Repository string `mapstructure:"repository"`
+	Repository      string   `mapstructure:"repository"`
+	DockerBuildArgs []string `mapstructure:"dockerBuildArgs"`
 }
 
 func (p MonoProject) Name() string {
@@ -77,6 +79,14 @@ func (p MonoProject) Repository(environment string) string {
 		return val.Repository
 	}
 	return p.config.GetString("repository")
+}
+
+func (p MonoProject) DockerBuildArgs(environment string) []string {
+	configs := p.EnvConfig()
+	if val, ok := configs[environment]; ok {
+		return val.DockerBuildArgs
+	}
+	return p.config.GetStringSlice("dockerBuildArgs")
 }
 
 func (p MonoProject) Version() string {

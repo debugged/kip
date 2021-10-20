@@ -70,6 +70,7 @@ $(BINDIR)/$(BINNAME): $(SRC)
 install:
 	make build
 	mkdir -p $(HOME)/bin
+	rm $(HOME)/bin/kip
 	cp $(BINDIR)/$(BINNAME) $(HOME)/bin
 
 # ------------------------------------------------------------------------------

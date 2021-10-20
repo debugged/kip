@@ -21,11 +21,12 @@ import (
 	"io"
 	"log"
 	"os"
-	"runtime"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/gammazero/workerpool"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"robpike.io/filter"
 )
@@ -148,19 +149,62 @@ func newPushCmd(out io.Writer) *cobra.Command {
 }
 
 func pushServices(out io.Writer, services []project.ServiceProject, repository string, key string, args []string, environment string, debug bool) {
-	wp := workerpool.New(runtime.NumCPU())
+	wp := workerpool.New(4)
 
+	bar := progressbar.NewOptions(-1,
+		progressbar.OptionSetWriter(out),
+		progressbar.OptionSpinnerType(14),
+		progressbar.OptionClearOnFinish(),
+		progressbar.OptionUseANSICodes(true),
+	)
+
+	finished := 0
+	pushing := 0
+	total := 0
+	start := time.Now()
 	for _, service := range services {
 		service := service
 		if service.HasDockerfile() {
+			total++
 			wp.Submit(func() {
+				pushing++
+				serviceStart := time.Now()
 				fmt.Fprintf(out, color.BlueString("PUSH service: \"%s\"\n"), service.Name())
-				pushErr := service.Push(repository, key, args, environment, debug)
+
+				defer func() {
+					finished++
+					pushing--
+					bar.Describe(fmt.Sprintf("%v/%v Pusing (%v)...", finished, total, pushing))
+					if finished != len(services) {
+						bar.RenderBlank()
+					}
+				}()
+
+				go func() {
+					for {
+						bar.Describe(fmt.Sprintf("%v/%v Pusing (%v)...", finished, total, pushing))
+						if finished != len(services) {
+							bar.RenderBlank()
+						}
+						time.Sleep(time.Millisecond)
+					}
+				}()
+
+				output, pushErr := service.Push(repository, key, args, environment)
+
+				d := time.Since(serviceStart)
+				d = d.Round(time.Millisecond)
+
 				if pushErr == nil {
+					bar.Clear()
 					fmt.Fprintf(out, color.BlueString("PUSH %s %s\n"), service.Name(), color.GreenString("SUCCESS"))
+					if debug {
+						out.Write(output)
+					}
 				} else {
-					fmt.Fprint(out, pushErr)
-					os.Exit(1)
+					bar.Clear()
+					fmt.Fprintf(out, color.BlueString("PUSH %s %s %s\n"), service.Name(), color.RedString("FAILED"), color.YellowString("%s", d))
+					out.Write(output)
 				}
 			})
 		} else {
@@ -169,4 +213,8 @@ func pushServices(out io.Writer, services []project.ServiceProject, repository s
 	}
 
 	wp.StopWait()
+	d := time.Since(start)
+	d = d.Round(time.Millisecond)
+	bar.Finish()
+	fmt.Fprintf(out, color.GreenString("PUSH %s\n"), color.YellowString("%s", d))
 }
