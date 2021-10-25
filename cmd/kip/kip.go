@@ -58,12 +58,11 @@ func initConfig() {
 func loadKipProject(path string) (project.Project, error) {
 	var kipProject project.Project
 	var err error
+
 	projectConfig := viper.New()
 	projectConfig.AddConfigPath(path)
 	projectConfig.SetConfigName("kip_config")
 	projectConfig.SetConfigType("yaml")
-
-	projectConfig.AutomaticEnv()
 
 	if err := projectConfig.ReadInConfig(); err != nil {
 		newPath, err := filepath.Abs(filepath.Join(path, ".."))

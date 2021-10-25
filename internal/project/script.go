@@ -27,17 +27,16 @@ type Script struct {
 	Environments []string
 }
 
-func (s Script) Run(args []string) error {
+func (s Script) Run(out io.Writer, args []string) error {
 	cmdArgs := s.Args
 	cmdArgs = append(cmdArgs, args...)
 
 	cmd := exec.Command(s.Command, cmdArgs...)
 	cmd.Dir = s.Path
 	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
 
 	var stdBuffer bytes.Buffer
-	mw := io.MultiWriter(os.Stdout, &stdBuffer)
+	mw := io.MultiWriter(out, &stdBuffer)
 
 	cmd.Stdout = mw
 
@@ -66,9 +65,4 @@ func (s Script) Run(args []string) error {
 	}
 
 	return nil
-}
-
-func getScripts(path string) []Script {
-	scripts := []Script{}
-	return scripts
 }

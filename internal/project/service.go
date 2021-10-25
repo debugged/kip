@@ -46,23 +46,26 @@ func (s ServiceProject) EnvConfig() map[string]*EnvConfig {
 	return envConfigs
 }
 
-func (s ServiceProject) Repository(environment string) string {
+func (s ServiceProject) Repository(environment string) (string, error) {
+	if s.config.IsSet("repository") {
+		return s.config.GetString("repository"), nil
+	}
+
+	configs := s.EnvConfig()
+	if val, ok := configs[environment]; ok {
+		return val.Repository, nil
+	}
 
 	if s.project != nil && !s.config.IsSet("repository") {
 		return s.project.Repository(environment)
 	}
 
-	configs := s.EnvConfig()
-	if val, ok := configs[environment]; ok {
-		return val.Repository
-	}
-
-	return s.config.GetString("repository")
+	return "", fmt.Errorf("repository not set")
 }
 
 func (s ServiceProject) DockerBuildArgs(environment string) []string {
-	if s.project != nil && !s.config.IsSet("dockerBuildArgs") {
-		return s.project.DockerBuildArgs(environment)
+	if s.config.IsSet("dockerBuildArgs") {
+		return s.config.GetStringSlice("dockerBuildArgs")
 	}
 
 	configs := s.EnvConfig()
@@ -70,7 +73,11 @@ func (s ServiceProject) DockerBuildArgs(environment string) []string {
 		return val.DockerBuildArgs
 	}
 
-	return s.config.GetStringSlice("dockerBuildArgs")
+	if s.project != nil && !s.config.IsSet("dockerBuildArgs") {
+		return s.project.DockerBuildArgs(environment)
+	}
+
+	return []string{}
 }
 
 func (s ServiceProject) Version() string {
@@ -148,7 +155,7 @@ func (p ServiceProject) GetService(name string) (*ServiceProject, error) {
 }
 
 func (s ServiceProject) Charts() []Chart {
-	return getCharts(s.Paths().Deployments, s.Name(), s)
+	return getCharts(s.Paths().Deployments, s)
 }
 
 func (s ServiceProject) AddChart(chartName string, args []string) (string, error) {
@@ -237,7 +244,7 @@ func (s ServiceProject) Build(repository string, key string, args []string, envi
 	servicePath, err := filepath.Rel(s.BuildPath(), dockerfilePath)
 
 	if repository == "" {
-		repository = s.Repository(environment)
+		repository, err = s.Repository(environment)
 	}
 
 	if err != nil {
@@ -279,8 +286,14 @@ func (s ServiceProject) Build(repository string, key string, args []string, envi
 
 func (s ServiceProject) Push(repository string, key string, args []string, environment string) ([]byte, error) {
 
+	var err error
+
 	if repository == "" {
-		repository = s.Repository(environment)
+		repository, err = s.Repository(environment)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	imageID, err := s.GetImageID(key, repository)
@@ -352,8 +365,6 @@ func getServices(path string, project *MonoProject) []ServiceProject {
 			serviceConfig.AddConfigPath(servicePath)
 			serviceConfig.SetConfigName("kip_config")
 			serviceConfig.SetConfigType("yaml")
-
-			serviceConfig.AutomaticEnv()
 
 			err := serviceConfig.ReadInConfig()
 

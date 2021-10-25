@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/fatih/color v1.13.0
 	github.com/gammazero/workerpool v1.1.2
+	github.com/joho/godotenv v1.4.0
 	github.com/kyokomi/emoji v2.1.0+incompatible
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/schollz/progressbar/v3 v3.8.3

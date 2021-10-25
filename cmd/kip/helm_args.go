@@ -59,7 +59,7 @@ func newHelmArgsCmd(out io.Writer) *cobra.Command {
 			}
 
 			if o.repository == "" {
-				o.repository = kipProject.Repository(o.environment)
+				o.repository, _ = kipProject.Repository(o.environment)
 			}
 
 			imageArgs := []string{}

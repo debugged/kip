@@ -64,16 +64,12 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 			services := kipProject.Services()
 			servicesToBuild := []project.ServiceProject{}
 
-			if !o.all && len(o.services) == 0 {
-				o.all = true
-			}
-
 			if o.environment == "" {
 				o.environment = kipProject.Environment()
 			}
 
 			if o.repository == "" {
-				o.repository = kipProject.Repository(o.environment)
+				o.repository, _ = kipProject.Repository(o.environment)
 			}
 
 			if o.all && len(o.services) > 0 {
@@ -112,17 +108,13 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 
 			fmt.Fprintf(out, "Building services: %s\n", strings.Join(serviceNames, ","))
 
-			if o.debug {
-				fmt.Fprintf(out, "Using args: %s\n\n", strings.Join(extraArgs, ", "))
-			}
-
 			preBuildscripts := kipProject.GetScripts("pre-build", o.environment)
 
 			if len(preBuildscripts) > 0 {
 				for _, script := range preBuildscripts {
 					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
 
-					err := script.Run([]string{})
+					err := script.Run(out, []string{})
 					if err != nil {
 						log.Fatalf("error running script \"%s\": %v", script.Name, err)
 					}
@@ -137,7 +129,7 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 				for _, script := range postBuildscripts {
 					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
 
-					err := script.Run([]string{})
+					err := script.Run(out, []string{})
 					if err != nil {
 						log.Fatalf("error running script \"%s\": %v", script.Name, err)
 					}
@@ -208,7 +200,14 @@ func buildServices(out io.Writer, services []project.ServiceProject, repository 
 					bar.Describe(fmt.Sprintf("%v/%v Building (%v)", finished, total, strings.Join(building, ", ")))
 				}()
 
-				output, buildErr := service.Build(repository, key, args, environment)
+				extraArgs := append(args, service.DockerBuildArgs(environment)...)
+
+				if debug {
+					bar.Clear()
+					fmt.Fprintf(out, color.BlueString("BUILDING %s with args: %s\n"), service.Name(), color.YellowString("%s", strings.Join(extraArgs, ", ")))
+				}
+
+				output, buildErr := service.Build(repository, key, extraArgs, environment)
 				d := time.Since(serviceStart)
 				d = d.Round(time.Millisecond)
 
@@ -222,10 +221,8 @@ func buildServices(out io.Writer, services []project.ServiceProject, repository 
 				} else {
 					bar.Clear()
 					fmt.Fprintf(out, color.BlueString("BUILD %s %s %s\n"), service.Name(), color.RedString("FAILED"), color.YellowString("%s", d))
-					if debug {
-						bar.Clear()
-						fmt.Fprintf(out, "%v\n", string(output))
-					}
+					bar.Clear()
+					fmt.Fprintf(out, "%v\n", string(output))
 				}
 			})
 		} else {

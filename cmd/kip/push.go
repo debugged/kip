@@ -73,7 +73,7 @@ func newPushCmd(out io.Writer) *cobra.Command {
 			}
 
 			if o.repository == "" {
-				o.repository = kipProject.Repository(o.environment)
+				o.repository, _ = kipProject.Repository(o.environment)
 			}
 
 			if o.all && len(o.services) > 0 {
@@ -115,7 +115,7 @@ func newPushCmd(out io.Writer) *cobra.Command {
 				for _, script := range prePushscripts {
 					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
 
-					err := script.Run([]string{})
+					err := script.Run(out, []string{})
 					if err != nil {
 						log.Fatalf("error running script \"%s\": %v", script.Name, err)
 					}
@@ -124,13 +124,13 @@ func newPushCmd(out io.Writer) *cobra.Command {
 
 			pushServices(out, servicesToPush, o.repository, o.key, extraArgs, o.environment, o.parallel, o.debug)
 
-			postBuildscripts := kipProject.GetScripts("post-build", o.environment)
+			postBuildscripts := kipProject.GetScripts("post-push", o.environment)
 
 			if len(postBuildscripts) > 0 {
 				for _, script := range postBuildscripts {
 					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
 
-					err := script.Run([]string{})
+					err := script.Run(out, []string{})
 					if err != nil {
 						log.Fatalf("error running script \"%s\": %v", script.Name, err)
 					}
@@ -203,10 +203,8 @@ func pushServices(out io.Writer, services []project.ServiceProject, repository s
 				} else {
 					bar.Clear()
 					fmt.Fprintf(out, color.BlueString("PUSH %s %s %s\n"), service.Name(), color.RedString("FAILED"), color.YellowString("%s", d))
-					if debug {
-						bar.Clear()
-						fmt.Fprintf(out, "%v\n", string(output))
-					}
+					bar.Clear()
+					fmt.Fprintf(out, "%v\n", string(output))
 				}
 			})
 		} else {

@@ -63,7 +63,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			chartsToDeploy := []project.Chart{}
 			servicesToDeploy := []project.ServiceProject{}
 
-			if !o.all && len(o.charts) == 0 {
+			if !o.all && len(o.charts) == 0 && len(o.services) == 0 {
 				fmt.Fprint(out, "specify what to deploy using -c or -s required or use --all | -a to deploy all charts and services\n")
 				os.Exit(1)
 			}
@@ -77,7 +77,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			}
 
 			if o.repository == "" {
-				o.repository = kipProject.Repository(o.environment)
+				o.repository, _ = kipProject.Repository(o.environment)
 			}
 
 			if o.all {
@@ -130,7 +130,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 				for _, script := range preDeployscripts {
 					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
 
-					err := script.Run([]string{})
+					err := script.Run(out, []string{})
 					if err != nil {
 						log.Fatalf("error running script \"%s\": %v", script.Name, err)
 					}
@@ -155,7 +155,8 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 						tag = "temp-" + o.key
 					}
 
-					buildID, err := service.GetImageID(tag, o.repository)
+					repo, _ := service.Repository(o.environment)
+					buildID, err := service.GetImageID(tag, repo)
 
 					if err != nil {
 						fmt.Fprintln(out, err)
@@ -175,6 +176,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			extraArgs = append(extraArgs, imageArgs...)
 
 			fmt.Fprintf(out, "Deploying charts  : %s\n", strings.Join(chartNames, ","))
+
 			if kipProject.Template() == "project" {
 				fmt.Fprintf(out, "Deploying services: %s\n\n", strings.Join(serviceNames, ","))
 			}
@@ -189,7 +191,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 				for _, script := range postDeployscripts {
 					fmt.Fprintf(out, color.BlueString("RUN script: \"%s\"\n"), script.Name)
 
-					err := script.Run([]string{})
+					err := script.Run(out, []string{})
 					if err != nil {
 						log.Fatalf("error running script %s: %v", script.Name, err)
 					}
@@ -199,7 +201,7 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 	}
 
 	f := cmd.Flags()
-	f.BoolVarP(&o.all, "all", "a", true, "deploy all charts")
+	f.BoolVarP(&o.all, "all", "a", false, "deploy all charts")
 	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
 	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
 	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")

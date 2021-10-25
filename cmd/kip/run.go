@@ -91,7 +91,7 @@ func newRunCmd(out io.Writer) *cobra.Command {
 				log.Fatal(err)
 			}
 
-			err = script.Run(extraArgs)
+			err = script.Run(out, extraArgs)
 
 			if err != nil {
 				log.Fatal(err)

@@ -17,7 +17,7 @@ type Project interface {
 	Version() string
 	Template() string
 	Environment() string
-	Repository(enviroment string) string
+	Repository(enviroment string) (string, error)
 	DockerBuildArgs(enviroment string) []string
 	Paths() paths
 	Charts() []Chart
@@ -73,12 +73,12 @@ func (p MonoProject) EnvConfig() map[string]*EnvConfig {
 	return envConfigs
 }
 
-func (p MonoProject) Repository(environment string) string {
+func (p MonoProject) Repository(environment string) (string, error) {
 	configs := p.EnvConfig()
 	if val, ok := configs[environment]; ok {
-		return val.Repository
+		return val.Repository, nil
 	}
-	return p.config.GetString("repository")
+	return p.config.GetString("repository"), nil
 }
 
 func (p MonoProject) DockerBuildArgs(environment string) []string {
@@ -128,7 +128,7 @@ func (p MonoProject) GetService(name string) (*ServiceProject, error) {
 }
 
 func (p MonoProject) Charts() []Chart {
-	return getCharts(p.Paths().Deployments, "", p)
+	return getCharts(p.Paths().Deployments, p)
 }
 
 func (p MonoProject) AddChart(chartName string, args []string) (string, error) {
