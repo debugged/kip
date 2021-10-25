@@ -11,8 +11,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 	"robpike.io/filter"
 )
@@ -21,6 +23,7 @@ type ServiceProject struct {
 	path    string
 	config  *viper.Viper
 	project *MonoProject
+	env     *map[string]string
 }
 
 func CreateServiceProject(path string, name string, generatorName string, args []string) error {
@@ -48,16 +51,17 @@ func (s ServiceProject) EnvConfig() map[string]*EnvConfig {
 
 func (s ServiceProject) Repository(environment string) (string, error) {
 	if s.config.IsSet("repository") {
-		return s.config.GetString("repository"), nil
+		return s.formatString(s.config.GetString("repository")), nil
 	}
 
 	configs := s.EnvConfig()
 	if val, ok := configs[environment]; ok {
-		return val.Repository, nil
+		return s.formatString(val.Repository), nil
 	}
 
 	if s.project != nil && !s.config.IsSet("repository") {
-		return s.project.Repository(environment)
+		value, err := s.project.Repository(environment)
+		return s.formatString(value), err
 	}
 
 	return "", fmt.Errorf("repository not set")
@@ -144,6 +148,16 @@ func (s ServiceProject) New(name string, generatorName string, args []string) er
 	config.SafeWriteConfig()
 
 	return nil
+}
+
+func (s ServiceProject) formatString(value string) string {
+	r := regexp.MustCompile(`\${[a-zA-Z_0-9]+}`)
+	matches := r.FindAllString(value, -1)
+	for _, match := range matches {
+		envName := match[2 : len(match)-1]
+		value = strings.ReplaceAll(value, match, (*s.env)[envName])
+	}
+	return value
 }
 
 func (s ServiceProject) Services() []ServiceProject {
@@ -372,7 +386,9 @@ func getServices(path string, project *MonoProject) []ServiceProject {
 				log.Fatal(err)
 			}
 
-			s := ServiceProject{path: servicePath, project: project, config: serviceConfig}
+			env, _ := godotenv.Read(filepath.Join(servicePath, ".env"))
+
+			s := ServiceProject{path: servicePath, project: project, config: serviceConfig, env: &env}
 			services = append(services, s)
 		}
 	}

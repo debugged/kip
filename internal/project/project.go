@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/spf13/viper"
 	"robpike.io/filter"
@@ -27,12 +29,14 @@ type Project interface {
 	GetScript(name string) (*Script, error)
 	GetScripts(binding string, environment string) []Script
 	AddScript(name string, command string, bindings []string) error
+	formatString(value string) string
 }
 
 // MonoProject defined a project that contains multiple services
 type MonoProject struct {
 	path   string
 	config *viper.Viper
+	env    map[string]string
 }
 
 func CreateMonoProject(path string, name string) error {
@@ -76,9 +80,9 @@ func (p MonoProject) EnvConfig() map[string]*EnvConfig {
 func (p MonoProject) Repository(environment string) (string, error) {
 	configs := p.EnvConfig()
 	if val, ok := configs[environment]; ok {
-		return val.Repository, nil
+		return p.formatString(val.Repository), nil
 	}
-	return p.config.GetString("repository"), nil
+	return p.formatString(p.config.GetString("repository")), nil
 }
 
 func (p MonoProject) DockerBuildArgs(environment string) []string {
@@ -238,13 +242,23 @@ func (p MonoProject) New(name string) error {
 	return nil
 }
 
+func (p MonoProject) formatString(value string) string {
+	r := regexp.MustCompile(`\${[a-zA-Z_0-9]+}`)
+	matches := r.FindAllString(value, -1)
+	for _, match := range matches {
+		envName := match[2 : len(match)-1]
+		value = strings.ReplaceAll(value, match, p.env[envName])
+	}
+	return value
+}
+
 // GetProject creates the project class and makes it globally Available
-func GetProject(projectPath string, config *viper.Viper) (Project, error) {
+func GetProject(projectPath string, config *viper.Viper, env map[string]string) (Project, error) {
 	switch config.GetString("template") {
 	case "project":
-		return MonoProject{path: projectPath, config: config}, nil
+		return MonoProject{path: projectPath, config: config, env: env}, nil
 	case "service":
-		return ServiceProject{path: projectPath, config: config}, nil
+		return ServiceProject{path: projectPath, config: config, env: &env}, nil
 	default:
 		return nil, fmt.Errorf("template %s not implemented", config.GetString("template"))
 	}

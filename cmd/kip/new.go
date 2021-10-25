@@ -26,7 +26,7 @@ import (
 )
 
 type newOptions struct {
-	template string
+	template  string
 	generator string
 }
 
@@ -58,21 +58,21 @@ func newNewCmd(out io.Writer) *cobra.Command {
 			projectName := args[0]
 
 			switch o.template {
-				case "project":
-					err = project.CreateMonoProject(wd, projectName)
-					break;
-				case "service":
-					extraArgs := []string{}
+			case "project":
+				err = project.CreateMonoProject(wd, projectName)
+				break
+			case "service":
+				extraArgs := []string{}
 
-					f := cmd.Flags()
+				f := cmd.Flags()
 
-					if f.ArgsLenAtDash() != -1 {
-						extraArgs = f.Args()[f.ArgsLenAtDash():]
-					}
-					err = project.CreateServiceProject(wd, projectName, o.generator, extraArgs)
-					break;
-				default:
-					os.Exit(1)
+				if f.ArgsLenAtDash() != -1 {
+					extraArgs = f.Args()[f.ArgsLenAtDash():]
+				}
+				err = project.CreateServiceProject(wd, projectName, o.generator, extraArgs)
+				break
+			default:
+				os.Exit(1)
 			}
 
 			if err != nil {

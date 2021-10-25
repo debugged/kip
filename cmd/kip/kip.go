@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/fatih/color"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -78,7 +79,8 @@ func loadKipProject(path string) (project.Project, error) {
 		return loadKipProject(newPath)
 	}
 
-	kipProject, err = project.GetProject(path, projectConfig)
+	env, _ := godotenv.Read()
+	kipProject, err = project.GetProject(path, projectConfig, env)
 
 	return kipProject, err
 }

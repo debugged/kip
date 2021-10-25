@@ -27,10 +27,10 @@ func (c Chart) Path() string {
 	return c.path
 }
 
-func (c Chart) getHashes(environment string, args []string) (string, string, string, error) {
+func (c Chart) getHashes(environment string, args []string) (string, string, error) {
 	cmdArgs, err := getCommandArgsAndFiles(c, environment, args, true)
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
 
 	cmd := exec.Command("helm", cmdArgs...)
@@ -41,22 +41,20 @@ func (c Chart) getHashes(environment string, args []string) (string, string, str
 	if err != nil {
 		fmt.Println(string(output))
 		log.Fatal(err)
-		return "", "", "", err
+		return "", "", err
 	}
 
 	h := sha256.New()
 	h.Write(output)
 	commandHash := base64.StdEncoding.EncodeToString(h.Sum(nil))
 
-	hashPath := filepath.Join(c.Project.Paths().Root, ".kip", "cache", "chart", c.name, environment+".hash")
+	savedHash, _ := getSavedHash("kip." + c.Name())
 
-	savedHash, _ := getSavedHash(hashPath)
-
-	return commandHash, savedHash, hashPath, nil
+	return commandHash, savedHash, nil
 }
 
 func (c Chart) IsChanged(environment string, args []string) (bool, error) {
-	commandHash, savedCommandHash, _, err := c.getHashes(environment, args)
+	commandHash, savedCommandHash, err := c.getHashes(environment, args)
 
 	if err != nil {
 		return false, err
@@ -66,7 +64,7 @@ func (c Chart) IsChanged(environment string, args []string) (bool, error) {
 }
 
 func (c Chart) Deploy(environment string, args []string) error {
-	commandHash, _, hashPath, err := c.getHashes(environment, args)
+	commandHash, _, err := c.getHashes(environment, args)
 
 	if err != nil {
 		return err
@@ -89,7 +87,7 @@ func (c Chart) Deploy(environment string, args []string) error {
 		return err
 	}
 
-	err = saveCommandHash(commandHash, hashPath)
+	err = saveCommandHash(commandHash, "kip."+c.Name())
 
 	if err != nil {
 		return err
@@ -181,31 +179,31 @@ func createChart(name string, path string, args []string) (string, error) {
 	return path, err
 }
 
-func getSavedHash(path string) (string, error) {
-	b, err := ioutil.ReadFile(path) // just pass the file name
+func getSavedHash(secretName string) (string, error) {
+	cmdArgs := []string{"get", "secret", secretName, "-o", "jsonpath={.data.hash}"}
+	cmd := exec.Command("kubectl", cmdArgs...)
+	output, err := cmd.CombinedOutput()
+
 	if err != nil {
 		return "", nil
 	}
 
-	return string(b), nil
+	decoded, err := base64.StdEncoding.DecodeString(string(output))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return string(decoded), nil
 }
 
-func saveCommandHash(hash string, path string) error {
-	err := os.MkdirAll(filepath.Dir(path), os.ModePerm)
-	if err != nil {
-		return err
-	}
+func saveCommandHash(hash string, secretName string) error {
+	cmdArgs := []string{"delete", "secret", secretName}
+	cmd := exec.Command("kubectl", cmdArgs...)
+	cmd.Run()
 
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		return err
-	}
-
-	_, err = f.WriteString(hash)
-
-	if err := f.Close(); err != nil {
-		return err
-	}
+	cmdArgs = []string{"create", "secret", "generic", secretName, "--from-literal=hash=" + hash}
+	cmd = exec.Command("kubectl", cmdArgs...)
+	err := cmd.Run()
 
 	return err
 }

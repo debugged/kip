@@ -175,12 +175,16 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 			extraArgs = append(extraArgs, imageArgs...)
 
-			fmt.Fprintf(out, "Deploying charts  : %s\n", strings.Join(chartNames, ","))
+			if len(chartNames) > 0 {
+				fmt.Fprintf(out, "Deploying charts  : %s\n", strings.Join(chartNames, ","))
+			}
 
-			if kipProject.Template() == "project" {
+			if kipProject.Template() == "project" && len(serviceNames) > 0 {
 				fmt.Fprintf(out, "Deploying services: %s\n\n", strings.Join(serviceNames, ","))
 			}
+
 			deployCharts(out, chartsToDeploy, o.environment, extraArgs, o.force)
+
 			if kipProject.Template() == "project" {
 				deployServices(out, servicesToDeploy, o.environment, extraArgs, o.force)
 			}
