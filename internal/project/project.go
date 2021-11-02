@@ -21,6 +21,7 @@ type Project interface {
 	Environment() string
 	Repository(enviroment string) (string, error)
 	DockerBuildArgs(enviroment string) []string
+	WhitelistedContexts() []string
 	Paths() paths
 	Charts() []Chart
 	AddChart(chartName string, args []string) (string, error)
@@ -91,6 +92,10 @@ func (p MonoProject) DockerBuildArgs(environment string) []string {
 		return val.DockerBuildArgs
 	}
 	return p.config.GetStringSlice("dockerBuildArgs")
+}
+
+func (p MonoProject) WhitelistedContexts() []string {
+	return p.config.GetStringSlice("whitelistedContexts")
 }
 
 func (p MonoProject) Version() string {

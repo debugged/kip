@@ -84,6 +84,14 @@ func (s ServiceProject) DockerBuildArgs(environment string) []string {
 	return []string{}
 }
 
+func (s ServiceProject) WhitelistedContexts() []string {
+	if s.config.IsSet("whitelistedContexts") {
+		return s.config.GetStringSlice("whitelistedContexts")
+	}
+
+	return s.project.config.GetStringSlice("whitelistedContexts")
+}
+
 func (s ServiceProject) Version() string {
 	return s.config.GetString("version")
 }

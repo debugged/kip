@@ -16,11 +16,13 @@ limitations under the License.
 package main
 
 import (
+	"bufio"
 	"debugged-dev/kip/v1/internal/project"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/fatih/color"
@@ -124,6 +126,12 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 				}
 			}
 
+			err := checkAndConfirmContext(out)
+			if err != nil {
+				fmt.Fprint(out, err)
+				os.Exit(1)
+			}
+
 			preDeployscripts := kipProject.GetScripts("pre-deploy", o.environment)
 
 			if len(preDeployscripts) > 0 {
@@ -158,16 +166,12 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 					repo, _ := service.Repository(o.environment)
 					buildID, err := service.GetImageID(tag, repo)
 
-					if err != nil {
-						fmt.Fprintln(out, err)
-						fmt.Fprintf(out, color.RedString("image: \"%s\" not found be sure to run kip build first\n"), service.Name())
-						os.Exit(1)
+					if err == nil {
+						serviceKey := strings.ReplaceAll(service.Name(), "-", "_")
+
+						imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".name=" + service.Name()}...)
+						imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".tag=" + buildID}...)
 					}
-
-					serviceKey := strings.ReplaceAll(service.Name(), "-", "_")
-
-					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".name=" + service.Name()}...)
-					imageArgs = append(imageArgs, []string{"--set", "global.services." + serviceKey + ".tag=" + buildID}...)
 				} else {
 					fmt.Fprintf(out, color.BlueString("SKIP service: %s no Dockerfile\n"), service.Name())
 				}
@@ -252,4 +256,45 @@ func deployServices(out io.Writer, services []project.ServiceProject, environmen
 			fmt.Fprintf(out, color.BlueString("SKIP DEPLOY service: \"%s\" no charts\n"), service.Name())
 		}
 	}
+}
+
+func currentContext() (string, error) {
+	// kubectl config current-context
+	cmd := exec.Command("kubectl", "config", "current-context")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	context := string(output)
+	context = strings.Replace(context, "\n", "", -1)
+	return context, nil
+}
+
+func checkAndConfirmContext(out io.Writer) error {
+	currentCtx, err := currentContext()
+	if err != nil {
+		return err
+	}
+
+	foundCtx := false
+
+	for _, ctx := range kipProject.WhitelistedContexts() {
+		if currentCtx == ctx {
+			foundCtx = true
+			break
+		}
+	}
+
+	if !foundCtx {
+		fmt.Fprintf(out, "\ncontext: %v is not listed in whitelist\nconfirm context: ", currentCtx)
+		reader := bufio.NewReader(os.Stdin)
+		text, _ := reader.ReadString('\n')
+		text = strings.Replace(text, "\n", "", -1)
+		if text != currentCtx {
+			fmt.Fprintf(out, "input \"%v\" does not match \"%v\"\n", text, currentCtx)
+			return checkAndConfirmContext(out)
+		}
+	}
+
+	return nil
 }
