@@ -65,6 +65,11 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 			chartsToDeploy := []project.Chart{}
 			servicesToDeploy := []project.ServiceProject{}
 
+			if kipProject.Template() == "service" && len(o.charts) == 0 {
+				o.all = true
+				o.services = []string{}
+			}
+
 			if !o.all && len(o.charts) == 0 && len(o.services) == 0 {
 				fmt.Fprint(out, "specify what to deploy using -c or -s required or use --all | -a to deploy all charts and services\n")
 				os.Exit(1)
@@ -80,6 +85,11 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 
 			if o.repository == "" {
 				o.repository, _ = kipProject.Repository(o.environment)
+			}
+
+			if o.all && len(o.services) > 0 {
+				fmt.Fprintf(out, "WARN: --all is ignored when --service is used\n")
+				o.all = false
 			}
 
 			if o.all {
@@ -213,9 +223,12 @@ func newDeployCmd(out io.Writer) *cobra.Command {
 	f.StringVarP(&o.environment, "environment", "e", "", "define build enviroment")
 	f.StringVarP(&o.repository, "repository", "r", "", "repository to tag image with")
 	f.StringVarP(&o.key, "key", "k", "latest", "key to tag latest image with")
-	f.StringArrayVarP(&o.charts, "charts", "c", []string{}, "charts to deploy")
+	f.StringArrayVarP(&o.charts, "chart", "c", []string{}, "charts to deploy")
 	f.StringArrayVarP(&o.services, "service", "s", []string{}, "services to deploy")
 	f.BoolVarP(&o.force, "force", "f", false, "force deploy")
+
+	registerServiceAutocomplete(cmd)
+	registerChartAutocomplete(cmd)
 
 	return cmd
 }

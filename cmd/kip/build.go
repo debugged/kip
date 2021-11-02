@@ -64,6 +64,16 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 			services := kipProject.Services()
 			servicesToBuild := []project.ServiceProject{}
 
+			if kipProject.Template() == "service" {
+				o.services = []string{}
+				o.all = true
+			}
+
+			if !o.all && len(o.services) == 0 {
+				fmt.Fprint(out, "specify what to build using -s required or use -a to build all services\n")
+				os.Exit(1)
+			}
+
 			if o.environment == "" {
 				o.environment = kipProject.Environment()
 			}
@@ -147,6 +157,8 @@ func newBuildCmd(out io.Writer) *cobra.Command {
 	f.BoolVarP(&o.debug, "debug", "d", false, "debug output")
 	f.IntVarP(&o.parallel, "parallel", "p", 4, "number of builds to run parallel")
 
+	registerServiceAutocomplete(cmd)
+
 	return cmd
 }
 
@@ -177,7 +189,7 @@ func buildServices(out io.Writer, services []project.ServiceProject, repository 
 	start := time.Now()
 
 	go func() {
-		for {
+		for !bar.IsFinished() {
 			bar.RenderBlank()
 			time.Sleep(time.Millisecond * 100)
 		}

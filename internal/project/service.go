@@ -89,7 +89,11 @@ func (s ServiceProject) WhitelistedContexts() []string {
 		return s.config.GetStringSlice("whitelistedContexts")
 	}
 
-	return s.project.config.GetStringSlice("whitelistedContexts")
+	if s.project != nil && !s.config.IsSet("whitelistedContexts") {
+		return s.project.WhitelistedContexts()
+	}
+
+	return []string{}
 }
 
 func (s ServiceProject) Version() string {

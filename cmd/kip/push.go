@@ -148,6 +148,8 @@ func newPushCmd(out io.Writer) *cobra.Command {
 	f.BoolVarP(&o.debug, "debug", "d", false, "debug output")
 	f.IntVarP(&o.parallel, "parallel", "p", 4, "number of images to push parallel")
 
+	registerServiceAutocomplete(cmd)
+
 	return cmd
 }
 
@@ -167,7 +169,7 @@ func pushServices(out io.Writer, services []project.ServiceProject, repository s
 	start := time.Now()
 
 	go func() {
-		for {
+		for !bar.IsFinished() {
 			bar.RenderBlank()
 			time.Sleep(time.Millisecond * 100)
 		}

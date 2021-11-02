@@ -74,7 +74,40 @@ to quickly create a Cobra application.`,
 		newVersionCmd(out),
 		newCompletionCmd(out),
 		newHelmArgsCmd(out),
+		newBuildPushDeployCmd(out),
+		newBuildPushCmd(out),
 	)
 
 	return cmd
+}
+
+func registerServiceAutocomplete(cmd *cobra.Command) {
+	cmd.RegisterFlagCompletionFunc("service", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+
+		if kipProject.Template() == "service" {
+			return []string{}, cobra.ShellCompDirectiveDefault
+		}
+
+		services := kipProject.Services()
+		suggestions := []string{}
+
+		for _, service := range services {
+			suggestions = append(suggestions, service.Name())
+		}
+
+		return suggestions, cobra.ShellCompDirectiveDefault
+	})
+}
+
+func registerChartAutocomplete(cmd *cobra.Command) {
+	cmd.RegisterFlagCompletionFunc("chart", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		chart := kipProject.Charts()
+		suggestions := []string{}
+
+		for _, chart := range chart {
+			suggestions = append(suggestions, chart.Name())
+		}
+
+		return suggestions, cobra.ShellCompDirectiveDefault
+	})
 }
