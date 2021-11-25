@@ -69,16 +69,16 @@ func (s ServiceProject) Repository(environment string) (string, error) {
 
 func (s ServiceProject) DockerBuildArgs(environment string) []string {
 	if s.config.IsSet("dockerBuildArgs") {
-		return s.config.GetStringSlice("dockerBuildArgs")
+		return s.formatStrings(s.config.GetStringSlice("dockerBuildArgs"))
 	}
 
 	configs := s.EnvConfig()
 	if val, ok := configs[environment]; ok {
-		return val.DockerBuildArgs
+		return s.formatStrings(val.DockerBuildArgs)
 	}
 
 	if s.project != nil && !s.config.IsSet("dockerBuildArgs") {
-		return s.project.DockerBuildArgs(environment)
+		return s.formatStrings(s.project.DockerBuildArgs(environment))
 	}
 
 	return []string{}
@@ -167,9 +167,16 @@ func (s ServiceProject) formatString(value string) string {
 	matches := r.FindAllString(value, -1)
 	for _, match := range matches {
 		envName := match[2 : len(match)-1]
-		value = strings.ReplaceAll(value, match, (*s.env)[envName])
+		value = strings.ReplaceAll(value, match, s.getEnv(envName))
 	}
 	return value
+}
+
+func (s ServiceProject) formatStrings(values []string) []string {
+	for i, value := range values {
+		values[i] = s.formatString(value)
+	}
+	return values
 }
 
 func (s ServiceProject) Services() []ServiceProject {
@@ -372,6 +379,14 @@ func (s ServiceProject) TagImage(currentTag string, newTag string, repository st
 	}
 
 	return nil
+}
+
+func (s ServiceProject) getEnv(key string) string {
+	value := (*s.env)[key]
+	if value == "" {
+		value = os.Getenv(key)
+	}
+	return value
 }
 
 func getServices(path string, project *MonoProject) []ServiceProject {

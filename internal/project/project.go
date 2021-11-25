@@ -31,6 +31,8 @@ type Project interface {
 	GetScripts(binding string, environment string) []Script
 	AddScript(name string, command string, bindings []string) error
 	formatString(value string) string
+	formatStrings(values []string) []string
+	getEnv(value string) string
 }
 
 // MonoProject defined a project that contains multiple services
@@ -89,9 +91,9 @@ func (p MonoProject) Repository(environment string) (string, error) {
 func (p MonoProject) DockerBuildArgs(environment string) []string {
 	configs := p.EnvConfig()
 	if val, ok := configs[environment]; ok {
-		return val.DockerBuildArgs
+		return p.formatStrings(val.DockerBuildArgs)
 	}
-	return p.config.GetStringSlice("dockerBuildArgs")
+	return p.formatStrings(p.config.GetStringSlice("dockerBuildArgs"))
 }
 
 func (p MonoProject) WhitelistedContexts() []string {
@@ -252,7 +254,22 @@ func (p MonoProject) formatString(value string) string {
 	matches := r.FindAllString(value, -1)
 	for _, match := range matches {
 		envName := match[2 : len(match)-1]
-		value = strings.ReplaceAll(value, match, p.env[envName])
+		value = strings.ReplaceAll(value, match, p.getEnv(envName))
+	}
+	return value
+}
+
+func (p MonoProject) formatStrings(values []string) []string {
+	for i, value := range values {
+		values[i] = p.formatString(value)
+	}
+	return values
+}
+
+func (p MonoProject) getEnv(key string) string {
+	value := p.env[key]
+	if value == "" {
+		value = os.Getenv(key)
 	}
 	return value
 }
